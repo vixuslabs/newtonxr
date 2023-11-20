@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "lib": ["DOM", "ESNext"],
+    "target": "ESNext",
+    "module": "NodeNext",
+    "jsx": "react",
+    "moduleResolution": "NodeNext",
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "downlevelIteration": true,
+    "skipLibCheck": true,
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"]
+}

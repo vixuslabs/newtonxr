@@ -1,0 +1,75 @@
+{
+  "name": "@vixuslabs/newtonxr",
+  "version": "0.0.0",
+  "description": "a webxr library for effortlessly infusing realistic physics into your projects",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "npm run lint:prettier && npm run lint:eslint",
+    "lint:prettier": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "lint:eslint": "eslint src",
+    "fix": "npm run fix:prettier && npm run fix:eslint",
+    "fix:prettier": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "fix:eslint": "eslint src --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vixuslabs/newtonxr.git"
+  },
+  "keywords": [
+    "webxr",
+    "physics",
+    "ar",
+    "vr",
+    "xr"
+  ],
+  "author": "",
+  "bugs": {
+    "url": "https://github.com/vixuslabs/newtonxr/issues"
+  },
+  "homepage": "https://github.com/vixuslabs/newtonxr#readme",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "typesVersions": {
+    "*": {
+      "*": [
+        "./dist/*/index.d.ts"
+      ]
+    }
+  },
+  "dependencies": {
+    "@coconut-xr/natuerlich": "^0.0.48",
+    "@react-three/rapier": "^1.1.2",
+    "zustand": ">=4.0.0"
+  },
+  "peerDependencies": {
+    "@react-three/fiber": "*",
+    "react": "*",
+    "three": "*"
+  },
+  "devDependencies": {
+    "@coconut-xr/koestlich": "^0.3.12",
+    "@react-three/eslint-plugin": "^0.1.1",
+    "@react-three/fiber": "^8.15.11",
+    "@types/react": "^18.2.37",
+    "@types/three": "^0.158.2",
+    "@types/webxr": "^0.5.8",
+    "@typescript-eslint/eslint-plugin": "^6.11.0",
+    "@typescript-eslint/parser": "^6.11.0",
+    "eslint": "^8.53.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.1.0",
+    "react": "^18.2.0",
+    "three": "^0.158.0",
+    "typescript": "^5.2.2",
+    "zustand": "~4.4.6"
+  }
+}
