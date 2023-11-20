@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export default function PhysicalCube() {
+export function PhysicalCube() {
   return (
     <>
       <></>

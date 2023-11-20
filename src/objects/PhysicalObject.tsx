@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export default function PhysicalObject() {
+export function PhysicalObject() {
   return (
     <>
       <></>

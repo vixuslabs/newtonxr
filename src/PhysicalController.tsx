@@ -11,7 +11,7 @@ import { Vector3 } from "three";
 import { useFrame } from "@react-three/fiber";
 import { XCurvedPointer } from "@coconut-xr/xinteraction/react";
 import { useNewton } from "./state.js";
-import useHeldObjects from "./useHeldObjects.js";
+import { useHeldObjects } from "./index.js";
 
 import type { XLinesIntersection } from "@coconut-xr/xinteraction";
 import type { InputDeviceFunctions } from "@coconut-xr/xinteraction/react";

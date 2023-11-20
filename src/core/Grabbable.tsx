@@ -8,7 +8,7 @@ import type { RapierRigidBody } from "@react-three/rapier";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { MutableRefObject } from "react";
 // import { useNewton } from "../state.js";
-import useHeldObjects from "../useHeldObjects.js";
+import { useHeldObjects } from "../index.js";
 
 export interface RigidAndMeshRefs {
   rigidRef: React.RefObject<RapierRigidBody>;

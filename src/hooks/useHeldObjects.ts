@@ -1,13 +1,13 @@
 "use client";
 
-import { useNewton } from "./state.js";
+import { useNewton } from "../state.js";
 
 /**
  * Custom hook to manage objects held in the XR environment.
  * This hook provides functionalities to set and clear objects held in either the left or right hand,
  * and returns the current state of objects held in each hand.
  */
-const useHeldObjects = (handedness: "left" | "right" | "none") => {
+export const useHeldObjects = (handedness: "left" | "right" | "none") => {
   // Extracts the current held objects and the setter function from the Zustand store.
   const { heldObjects, setHeldObject } = useNewton((state) => ({
     heldObjects: state.heldObjects,
@@ -66,5 +66,3 @@ const useHeldObjects = (handedness: "left" | "right" | "none") => {
   //   clearRightHandObject,
   // };
 };
-
-export default useHeldObjects;

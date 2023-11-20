@@ -30,7 +30,7 @@ interface PhysicalBallProps {
  * @returns A virtual ball which can be grabbed and interact with the environment
  */
 
-const PhysicalBall = forwardRef<
+export const PhysicalBall = forwardRef<
   React.RefObject<RapierRigidBody>,
   PhysicalBallProps
 >(
@@ -102,8 +102,6 @@ const PhysicalBall = forwardRef<
     );
   },
 );
-
-export default PhysicalBall;
 
 // export default function _PhysicalBall({
 //   children,

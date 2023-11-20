@@ -10,7 +10,7 @@ interface XRPhysicsProps extends PhysicsProps {
   //   gravity?: Vector3Tuple;
 }
 
-export default function XRPhysics({
+export function XRPhysics({
   children,
   gravity = [0, -9.81, 0],
 }: XRPhysicsProps) {
