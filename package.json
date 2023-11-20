@@ -1,6 +1,6 @@
 {
   "name": "@vixuslabs/newtonxr",
-  "version": "0.0.0",
+  "version": "0.0.1-alpha.1",
   "description": "a webxr library for effortlessly infusing realistic physics into your projects",
   "main": "index.js",
   "scripts": {
