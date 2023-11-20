@@ -1,0 +1,55 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": true
+  },
+  "env": {
+    "browser": true,
+    "es6": true,
+    "node": true
+  },
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
+  "plugins": [
+    "@typescript-eslint",
+    "prettier",
+    "react",
+    "react-hooks",
+    "@react-three"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:@react-three/recommended",
+    "prettier"
+  ],
+  "rules": {
+    // "@typescript-eslint/array-type": "off",
+    // "@typescript-eslint/consistent-type-definitions": "off",
+    "react/no-unknown-property": "off",
+    "@typescript-eslint/consistent-type-imports": [
+      "warn",
+      {
+        "prefer": "type-imports",
+        "fixStyle": "inline-type-imports"
+      }
+    ],
+    // "@typescript-eslint/no-unused-vars": [
+    //   "warn",
+    //   { "argsIgnorePattern": "^_" }
+    // ],
+    // "@typescript-eslint/no-misused-promises": [
+    //   2,
+    //   {
+    //     "checksVoidReturn": { "attributes": false }
+    //   }
+    // ],
+    "react/display-name": "off"
+  }
+}
