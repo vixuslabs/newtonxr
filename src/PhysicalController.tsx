@@ -1,6 +1,13 @@
 "use client";
 
-import React, { Suspense, useState, useRef, useMemo, useCallback } from "react";
+import React, {
+  Suspense,
+  useState,
+  useRef,
+  useMemo,
+  useCallback,
+  // useEffect,
+} from "react";
 import { RayBasicMaterial } from "@coconut-xr/natuerlich/defaults";
 import {
   SpaceGroup,
@@ -10,11 +17,12 @@ import {
 import { Vector3 } from "three";
 import { useFrame } from "@react-three/fiber";
 import { XCurvedPointer } from "@coconut-xr/xinteraction/react";
-import { useNewton } from "./state.js";
 import { useHeldObjects } from "./index.js";
 
 import type { XLinesIntersection } from "@coconut-xr/xinteraction";
 import type { InputDeviceFunctions } from "@coconut-xr/xinteraction/react";
+import { useControllersState } from "./hooks/useControllersState.js";
+import { useNewton } from "./state.js";
 
 interface PhysicalControllerProps {
   inputSource: XRInputSource;
@@ -30,7 +38,7 @@ const INITIAL_POINT = new Vector3(0, 0, 0);
 const INITIAL_RAY_LENGTH = 0.01;
 const RAY_ADJUSTMENT_SPEED = 0.6;
 
-export default function PhysicalController({
+export function PhysicalController({
   inputSource,
   id,
 }: PhysicalControllerProps) {
@@ -47,14 +55,9 @@ export default function PhysicalController({
     () => inputSource.handedness,
     [inputSource.handedness],
   );
+  const { setInteractionPoint, updateControllerPointer } = useNewton();
 
-  const controllerState = useNewton((state) => {
-    if (handedness === "none") {
-      return null;
-    }
-
-    return state.controllers[handedness];
-  });
+  const [controllerState] = useControllersState(handedness);
 
   const { heldObject, setHeldObject, clearHeldObject } =
     useHeldObjects(handedness);
@@ -78,6 +81,7 @@ export default function PhysicalController({
     intersection: readonly XLinesIntersection[],
     // handedness: "left" | "right"
   ) => {
+    // console.log("intersection", intersection);
     if (intersection.length === 0 || !intersection[0].capturedObject) {
       if (!heldObject) {
         return;
@@ -89,10 +93,13 @@ export default function PhysicalController({
 
     const capturedObject = intersection[0].capturedObject;
 
-    if (capturedObject.uuid === heldObject) {
+    if (capturedObject.uuid === heldObject || heldObject) {
       return;
     }
 
+    console.log("capturedObject", capturedObject);
+
+    // setHeldObject(capturedObject.uuid, -rayOffset);
     setHeldObject(capturedObject.uuid);
   };
 
@@ -107,7 +114,7 @@ export default function PhysicalController({
 
     const adjustment = RAY_ADJUSTMENT_SPEED * delta;
 
-    if (!controllerState) return;
+    if (!controllerState || handedness == "none") return;
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, yThumbstick] = controllerState.axes;
@@ -120,6 +127,11 @@ export default function PhysicalController({
 
     if (newRayLength !== rayLength) {
       setRayLength(newRayLength);
+      setInteractionPoint(handedness, {
+        zPosition: -newRayLength,
+        heldObjectId: heldObject,
+      });
+      updateControllerPointer(handedness, -newRayLength);
     }
   });
 
@@ -137,15 +149,6 @@ export default function PhysicalController({
           points={pointerPoints}
           ref={pointerRef}
           id={id}
-          // onIntersections={(intersections) => {
-          //   const handedness = inputSource.handedness;
-
-          //   if (handedness === "none") {
-          //     return;
-          //   }
-
-          //   handleIntersection(intersections, handedness);
-          // }}
           onIntersections={handleIntersection}
         />
         <mesh

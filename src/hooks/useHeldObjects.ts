@@ -9,33 +9,48 @@ import { useNewton } from "../state.js";
  */
 export const useHeldObjects = (handedness: "left" | "right" | "none") => {
   // Extracts the current held objects and the setter function from the Zustand store.
-  const { heldObjects, setHeldObject } = useNewton((state) => ({
-    heldObjects: state.heldObjects,
-    setHeldObject: state.setHeldObject, // Assuming you have a setter in your Zustand store
-  }));
+  const { heldObjects, setHeldObject, setInteractionPoint } = useNewton();
 
   /**
    * Sets the specified object as being held in the left hand.
    * @param objectUUID - The THREE.Object3D's UUID to be held in the left hand.
+   * @param zPosition - The z-position of the object relative to the inputSource.
    */
-  const setLeftHandObject = (objectUUID: string) => {
+  const setLeftHandObject = (objectUUID: string, zPosition?: number) => {
     setHeldObject("left", objectUUID);
+
+    if (zPosition) {
+      setInteractionPoint("left", {
+        zPosition,
+        heldObjectId: objectUUID,
+      });
+    }
   };
 
   /**
    * Sets the specified object as being held in the right hand.
    * @param objectUUID - The THREE.Object3D's UUID to be held in the right hand.
+   * @param zPosition - The z-position of the object relative to the inputSource.
    */
-  const setRightHandObject = (objectUUID: string) => {
+  const setRightHandObject = (objectUUID: string, zPosition?: number) => {
     setHeldObject("right", objectUUID);
+
+    if (zPosition) {
+      setInteractionPoint("right", {
+        zPosition,
+        heldObjectId: objectUUID,
+      });
+    }
   };
 
   const clearLeftHandObject = () => {
     setHeldObject("left", null);
+    setInteractionPoint("left", null);
   };
 
   const clearRightHandObject = () => {
     setHeldObject("right", null);
+    setInteractionPoint("right", null);
   };
 
   if (handedness === "left") {
