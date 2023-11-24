@@ -32,12 +32,7 @@ export function BuildPhysicalMeshes({
             type="fixed"
             ref={rigidBodyRef}
           >
-            <TrackedMesh
-              mesh={mesh}
-              ref={meshRef}
-              // meshRef={meshRef}
-              // rigidBodyRef={rigidBodyRef}
-            >
+            <TrackedMesh mesh={mesh} ref={meshRef}>
               {children ? (
                 children
               ) : (
@@ -45,7 +40,7 @@ export function BuildPhysicalMeshes({
                   wireframe={debug}
                   transparent={!debug}
                   opacity={debug ? 100 : 0}
-                  color={debug ? "red" : "white"}
+                  color={debug ? "purple" : "white"}
                 />
               )}
             </TrackedMesh>

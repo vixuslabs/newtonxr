@@ -6,7 +6,7 @@ import React, { useRef } from "react";
 
 import type { RapierRigidBody } from "@react-three/rapier";
 interface BuildPhysicalPlanesProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   debug?: boolean;
 }
 
@@ -21,7 +21,7 @@ export function BuildPhysicalPlanes({
   return (
     <group name="room-planes">
       {planes?.map((plane) => (
-        <RigidBody key={getPlaneId(plane)} ref={rigidBodyRef}>
+        <RigidBody key={getPlaneId(plane)} ref={rigidBodyRef} type="fixed">
           <TrackedPlane
             plane={plane}
             ref={planeRef}
