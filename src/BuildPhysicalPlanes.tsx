@@ -2,7 +2,7 @@
 import { useTrackedPlanes, TrackedPlane } from "@coconut-xr/natuerlich/react";
 import { getPlaneId } from "@coconut-xr/natuerlich";
 import { RigidBody } from "@react-three/rapier";
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 import type { RapierRigidBody } from "@react-three/rapier";
 interface BuildPhysicalPlanesProps {
@@ -18,10 +18,21 @@ export function BuildPhysicalPlanes({
   const planeRef = useRef<THREE.Mesh>(null);
   const rigidBodyRef = useRef<RapierRigidBody>(null);
 
+  useEffect(() => {
+    // planes?.forEach((plane) => {
+    // planeRef.current?.geometry?.setFromPoints(plane.polygon);
+    // });
+  }, [planes]);
+
   return (
     <group name="room-planes">
       {planes?.map((plane) => (
-        <RigidBody key={getPlaneId(plane)} ref={rigidBodyRef} type="fixed">
+        <RigidBody
+          key={getPlaneId(plane)}
+          ref={rigidBodyRef}
+          colliders="cuboid"
+          type="fixed"
+        >
           <TrackedPlane
             plane={plane}
             ref={planeRef}

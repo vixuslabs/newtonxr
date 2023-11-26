@@ -30,6 +30,9 @@ export function BuildPhysicalMeshes({
             name={mesh.semanticLabel}
             key={getMeshId(mesh)}
             type="fixed"
+            colliders={
+              mesh.semanticLabel === "global mesh" ? "trimesh" : "hull"
+            }
             ref={rigidBodyRef}
           >
             <TrackedMesh mesh={mesh} ref={meshRef}>
