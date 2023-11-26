@@ -13,10 +13,11 @@ interface XRPhysicsProps extends PhysicsProps {
 export function XRPhysics({
   children,
   gravity = [0, -9.81, 0],
+  ...rest
 }: XRPhysicsProps) {
   return (
     <Suspense>
-      <Physics gravity={gravity}>
+      <Physics gravity={gravity} {...rest}>
         <XRConfig />
         {children}
       </Physics>
