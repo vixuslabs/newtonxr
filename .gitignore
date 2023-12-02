@@ -1,5 +1,14 @@
-/node_modules
-/dist
+node_modules
+dist
 package-lock.json
-.DS_Store
 .vscode
+
+# misc
+.DS_Store
+*.pem
+
+# turborepo
+.turbo
+
+# keeping temporarily for reference
+old_package.json
