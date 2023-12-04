@@ -46,4 +46,4 @@ jobs:
         run: pnpm turbo --filter "./packages/*" build lint typecheck
 
       - name: Create release
-        run: pnpm publish packages/newtonxr --dry-run --no-git-checks --access restricted --tag alpha
+        run: pnpm publish packages/newtonxr --no-git-checks --access restricted
