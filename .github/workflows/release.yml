@@ -47,3 +47,5 @@ jobs:
 
       - name: Create release
         run: pnpm publish packages/newtonxr --no-git-checks --access restricted
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
