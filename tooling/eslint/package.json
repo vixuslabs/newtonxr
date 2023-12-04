@@ -3,17 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "files": [
-    "./base.js",
-    "./nextjs.js",
-    "./react.js"
-  ],
-  "scripts": {
-    "lint": "eslint ."
-  },
   "dependencies": {
+    "@newtonxr/tsconfig": "0.1.0",
     "@next/eslint-plugin-next": "^14.0.2",
     "@react-three/eslint-plugin": "^0.1.1",
+    "@rushstack/eslint-patch": "latest",
+    "@types/eslint": "^8.44.7",
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",
     "eslint-config-prettier": "^9.0.0",
@@ -24,9 +19,6 @@
     "eslint-plugin-react-hooks": "^4.6.0"
   },
   "devDependencies": {
-    "@newtonxr/prettier-config": "0.1.0",
-    "@newtonxr/tsconfig": "0.1.0",
-    "@types/eslint": "^8.44.7",
     "eslint": "^8.54.0",
     "typescript": "^5.3.2"
   },
@@ -35,6 +27,5 @@
     "extends": [
       "./base.js"
     ]
-  },
-  "prettier": "@newtonxr/prettier-config"
+  }
 }

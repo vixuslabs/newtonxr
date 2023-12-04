@@ -27,11 +27,12 @@
     "@ianvs/prettier-plugin-sort-imports": "^4.1.1",
     "@manypkg/cli": "latest",
     "@newtonxr/eslint-config": "0.1.0",
-    "@newtonxr/prettier-config": "0.1.0",
     "@turbo/gen": "^1.10.16",
-    "prettier": "^3.1.0",
+    "@types/node": "18.16.0",
+    "dotenv": "latest",
+    "prettier": "^2.8.8",
+    "prettier-plugin-tailwindcss": "^0.3.0",
     "turbo": "^1.10.16",
     "typescript": "^5.3.2"
-  },
-  "prettier": "@newtonxr/prettier-config"
+  }
 }

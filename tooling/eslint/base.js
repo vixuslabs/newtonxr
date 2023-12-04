@@ -1,15 +1,5 @@
 /** @type {import("eslint").Linter.Config} */
 const config = {
-  parser: "@typescript-eslint/parser",
-  parserOptions: {
-    project: true,
-  },
-  env: {
-    browser: true,
-    es6: true,
-    node: true,
-  },
-  plugins: ["import", "@typescript-eslint"],
   extends: [
     "turbo",
     "eslint:recommended",
@@ -17,6 +7,15 @@ const config = {
     "plugin:@typescript-eslint/stylistic-type-checked",
     "prettier",
   ],
+  env: {
+    es2022: true,
+    node: true,
+  },
+  parser: "@typescript-eslint/parser",
+  parserOptions: {
+    project: true,
+  },
+  plugins: ["import", "@typescript-eslint"],
   rules: {
     // "@typescript-eslint/array-type": "off",
     // "@typescript-eslint/consistent-type-definitions": "off",

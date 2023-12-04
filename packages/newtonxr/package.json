@@ -36,10 +36,8 @@
     "build": "tsup",
     "dev": "pnpm run build -- --watch",
     "lint": "eslint \"**/*.{ts,tsx}\" --max-warnings 0",
-    "fix": "pnpm run fix:prettier && pnpm run fix:eslint",
-    "fix:prettier": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "fix:eslint": "eslint src --fix",
-    "clean": "git clean -xdf dist node_modules"
+    "clean": "git clean -xdf dist node_modules",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@coconut-xr/natuerlich": "^0.0.48",
@@ -55,14 +53,12 @@
     "@coconut-xr/koestlich": "^0.3.12",
     "@coconut-xr/xinteraction": "^0.1.12",
     "@newtonxr/eslint-config": "0.1.0",
-    "@newtonxr/prettier-config": "0.1.0",
     "@newtonxr/tsconfig": "0.1.0",
     "@react-three/fiber": "^8.15.11",
     "@types/react": "^18.2.37",
     "@types/three": "^0.158.2",
     "@types/webxr": "^0.5.8",
     "eslint": "^8.54.0",
-    "prettier": "^3.1.0",
     "react": "^18.2.0",
     "three": "^0.158.0",
     "tsup": "8.0.1",
@@ -75,5 +71,5 @@
       "@newtonxr/eslint-config/react"
     ]
   },
-  "prettier": "@newtonxr/prettier-config"
+  "prettier": "../../prettier.config.cjs"
 }

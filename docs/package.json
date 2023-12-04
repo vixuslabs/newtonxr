@@ -19,7 +19,6 @@
   },
   "devDependencies": {
     "@newtonxr/eslint-config": "0.1.0",
-    "@newtonxr/prettier-config": "0.1.0",
     "@newtonxr/tsconfig": "0.1.0",
     "@types/react-dom": "^18.2.15",
     "autoprefixer": "^10.4.16",
@@ -33,6 +32,5 @@
       "@newtonxr/eslint-config/nextjs",
       "@newtonxr/eslint-config/react"
     ]
-  },
-  "prettier": "@newtonxr/prettier-config"
+  }
 }

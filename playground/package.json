@@ -24,9 +24,8 @@
   },
   "devDependencies": {
     "@newtonxr/eslint-config": "0.1.0",
-    "@newtonxr/prettier-config": "0.1.0",
-    "@newtonxr/tsconfig": "0.1.0",
     "@newtonxr/tailwind-config": "0.1.0",
+    "@newtonxr/tsconfig": "0.1.0",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@types/three": "^0.158.2",
@@ -40,6 +39,5 @@
       "@newtonxr/eslint-config/base",
       "@newtonxr/eslint-config/react"
     ]
-  },
-  "prettier": "@newtonxr/prettier-config"
+  }
 }
