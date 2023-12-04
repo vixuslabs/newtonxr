@@ -1,9 +1,10 @@
 import { fileURLToPath } from "url";
 
+// const { fileURLToPath } = require("url");
+
 /** @typedef  {import("prettier").Config} PrettierConfig */
 /** @typedef {import("prettier-plugin-tailwindcss").PluginOptions} TailwindConfig */
 /** @typedef  {import("@ianvs/prettier-plugin-sort-imports").PluginConfig} SortImportsConfig */
-
 /** @type { PrettierConfig | SortImportsConfig | TailwindConfig } */
 const config = {
   plugins: [
@@ -11,7 +12,7 @@ const config = {
     "prettier-plugin-tailwindcss",
   ],
   tailwindConfig: fileURLToPath(
-    new URL("../../tooling/tailwind/index.ts", import.meta.url)
+    new URL("../../tooling/tailwind/index.ts", import.meta.url),
   ),
   importOrder: [
     "^(next/(.*)$)|^(next$)",

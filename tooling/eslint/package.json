@@ -8,6 +8,9 @@
     "./nextjs.js",
     "./react.js"
   ],
+  "scripts": {
+    "lint": "eslint ."
+  },
   "dependencies": {
     "@next/eslint-plugin-next": "^14.0.2",
     "@react-three/eslint-plugin": "^0.1.1",
