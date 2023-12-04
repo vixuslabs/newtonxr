@@ -64,9 +64,7 @@ export function PhysicalController({
   );
 
   const handleSelectEnd = useCallback((e: XRInputSourceEvent) => {
-    /* eslint-disable */
     pointerRef.current?.release(0, e);
-    /* eslint-enable */
   }, []);
 
   const handleSelectStart = useCallback((e: XRInputSourceEvent) => {
@@ -77,9 +75,7 @@ export function PhysicalController({
         weakMagnitude: 0.5,
       });
     });
-    /* eslint-disable */
     pointerRef.current?.press(0, e);
-    /* eslint-enable */
   }, []);
 
   const handleIntersection = (

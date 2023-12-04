@@ -1,5 +1,5 @@
 import { getInputSourceId } from "@coconut-xr/natuerlich";
-import { GrabHand, XRCanvas } from "@coconut-xr/natuerlich/defaults";
+import { XRCanvas } from "@coconut-xr/natuerlich/defaults";
 import {
   // NonImmersiveCamera,
   ImmersiveSessionOrigin,

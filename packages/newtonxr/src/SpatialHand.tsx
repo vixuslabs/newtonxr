@@ -4,33 +4,14 @@ import {
   DynamicHandModel,
   FocusStateGuard,
   HandBoneGroup,
-  useInputSourceEvent,
 } from "@coconut-xr/natuerlich/react";
-import { XIntersection } from "@coconut-xr/xinteraction";
-import {
-  InputDeviceFunctions,
-  XSphereCollider,
-} from "@coconut-xr/xinteraction/react";
-import {
-  createPortal,
-  ThreeEvent,
-  useFrame,
-  useThree,
-} from "@react-three/fiber";
-import {
-  interactionGroups,
-  RapierRigidBody,
-  RigidBody,
-} from "@react-three/rapier";
-import React, { Suspense, useMemo, useRef } from "react";
-import {
-  ColorRepresentation,
-  Event,
-  Mesh,
-  PositionalAudio as PositionalAudioImpl,
-  Quaternion,
-  Vector3,
-} from "three";
+import { XSphereCollider } from "@coconut-xr/xinteraction/react";
+import type { InputDeviceFunctions } from "@coconut-xr/xinteraction/react";
+import { useFrame } from "@react-three/fiber";
+import { interactionGroups, RigidBody } from "@react-three/rapier";
+import type { RapierRigidBody } from "@react-three/rapier";
+import React, { Suspense, useRef } from "react";
+import { Quaternion, Vector3 } from "three";
 
 interface SpacialHandProps {
   hand: XRHand;
@@ -52,6 +33,7 @@ export function SpatialHand({
   const handRef = useRef<THREE.Group>(null);
   const handWorldPosition = useRef<THREE.Vector3>(new Vector3());
   const handWorldQuaternion = useRef<THREE.Quaternion>(new Quaternion());
+  const handWorldScale = useRef<THREE.Vector3>(new Vector3());
 
   useFrame(() => {
     const handModel = handRef.current;
@@ -74,12 +56,10 @@ export function SpatialHand({
 
       // physicsHand.setNextKinematicRotation(handWorldQuaternion.current);
 
-      const scaleTest = new Vector3(1, 1, 1);
-
       handModel.matrix.decompose(
         handWorldPosition.current,
         handWorldQuaternion.current,
-        scaleTest,
+        handWorldScale.current,
       );
       console.log("---");
 
@@ -135,6 +115,7 @@ export function SpatialHand({
             {/* {children != null && (
               <HandBoneGroup joint={childrenAtJoint}>{children}</HandBoneGroup>
             )} */}
+            {children}
           </DynamicHandModel>
         </RigidBody>
       </Suspense>

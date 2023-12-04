@@ -1,13 +1,14 @@
 "use client";
 
-import React, { Suspense } from "react";
 import { Physics } from "@react-three/rapier";
+import type { PhysicsProps } from "@react-three/rapier";
+import React, { Suspense } from "react";
+import type { Vector3Tuple } from "three";
+
 import XRConfig from "./XRConfig.js";
 
-import type { PhysicsProps } from "@react-three/rapier";
-
 interface XRPhysicsProps extends PhysicsProps {
-  //   gravity?: Vector3Tuple;
+  gravity?: Vector3Tuple;
 }
 
 export function XRPhysics({

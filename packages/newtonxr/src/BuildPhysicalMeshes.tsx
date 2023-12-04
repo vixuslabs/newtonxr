@@ -1,10 +1,11 @@
 "use client";
-import { RigidBody } from "@react-three/rapier";
-import React, { useRef } from "react";
-import { useTrackedMeshes, TrackedMesh } from "@coconut-xr/natuerlich/react";
-import { getMeshId } from "@coconut-xr/natuerlich";
 
+import { getMeshId } from "@coconut-xr/natuerlich";
+import { TrackedMesh, useTrackedMeshes } from "@coconut-xr/natuerlich/react";
+import { RigidBody } from "@react-three/rapier";
 import type { RapierRigidBody } from "@react-three/rapier";
+import React, { useRef } from "react";
+
 interface BuildPhysicalMeshesProps {
   children?: React.ReactNode;
   excludeGlobalMesh?: boolean;

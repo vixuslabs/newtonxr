@@ -1,13 +1,12 @@
+import type { RootState } from "@react-three/fiber";
 import { create } from "zustand";
+import type { StoreApi } from "zustand";
 import { combine } from "zustand/middleware";
 
-import type { RootState } from "@react-three/fiber";
-import type { StoreApi } from "zustand";
-
-export type GamepadAxes = {
+export interface GamepadAxes {
   name: string;
   value: number;
-};
+}
 
 export type ButtonsState = {
   name: string;
@@ -27,10 +26,10 @@ export interface XRController {
 //   heldObject: string | null;
 // }
 
-export type InteractionPoint = {
+export interface InteractionPoint {
   zPosition: number;
   heldObjectId: string | null;
-};
+}
 
 export type NewtonState = {
   controllers: {
@@ -99,7 +98,7 @@ export const useNewton = create(
 
       // const stateControllers: XRController[] = [];
 
-      for (const inputSource of inputSources || []) {
+      for (const inputSource of inputSources ?? []) {
         const {
           handedness,
           gripSpace,
@@ -197,7 +196,7 @@ export const useNewton = create(
           })
           .filter((axis) => axis.name !== "invalid" && Boolean(axis));
 
-        const pointer = controllers[handedness]?.pointer || undefined;
+        const pointer = controllers[handedness]?.pointer ?? undefined;
 
         const controller: XRController = {
           handedness,
