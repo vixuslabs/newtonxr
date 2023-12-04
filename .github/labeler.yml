@@ -1,0 +1,5 @@
+"📚 documentation":
+  - any: ["docs/**", "!docs/**/package.json"]
+
+"playground":
+  - any: ["playground/**", "!playground/**/package.json"]
