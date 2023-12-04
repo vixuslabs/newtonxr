@@ -1,10 +1,10 @@
 "use client";
 
+import React, { useEffect, useRef } from "react";
 import { getPlaneId } from "@coconut-xr/natuerlich";
 import { TrackedPlane, useTrackedPlanes } from "@coconut-xr/natuerlich/react";
 import { RigidBody } from "@react-three/rapier";
 import type { RapierRigidBody } from "@react-three/rapier";
-import React, { useEffect, useRef } from "react";
 
 interface BuildPhysicalPlanesProps {
   children?: React.ReactNode;

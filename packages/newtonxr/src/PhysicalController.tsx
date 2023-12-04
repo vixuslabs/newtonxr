@@ -1,5 +1,13 @@
 "use client";
 
+import React, {
+  Suspense,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  // useEffect,
+} from "react";
 import { RayBasicMaterial } from "@coconut-xr/natuerlich/defaults";
 import {
   DynamicControllerModel,
@@ -10,14 +18,6 @@ import type { XLinesIntersection } from "@coconut-xr/xinteraction";
 import { XCurvedPointer } from "@coconut-xr/xinteraction/react";
 import type { InputDeviceFunctions } from "@coconut-xr/xinteraction/react";
 import { useFrame } from "@react-three/fiber";
-import React, {
-  Suspense,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  // useEffect,
-} from "react";
 import { Vector3 } from "three";
 
 import { useNewton } from "./core/store.js";

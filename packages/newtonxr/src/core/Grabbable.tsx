@@ -1,12 +1,5 @@
 "use client";
 
-import { isXIntersection } from "@coconut-xr/xinteraction";
-import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import {
-  vec3,
-  // vec3,
-  type RapierRigidBody,
-} from "@react-three/rapier";
 import React, {
   forwardRef,
   useMemo,
@@ -14,6 +7,13 @@ import React, {
   // useCallback,
   type MutableRefObject,
 } from "react";
+import { isXIntersection } from "@coconut-xr/xinteraction";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import {
+  vec3,
+  // vec3,
+  type RapierRigidBody,
+} from "@react-three/rapier";
 // import { Matrix4, Quaternion, Vector3 } from "three";
 import { Vector3 } from "three";
 

@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { getInputSourceId } from "@coconut-xr/natuerlich";
 import { XRCanvas } from "@coconut-xr/natuerlich/defaults";
 import {
@@ -26,7 +27,6 @@ import {
   XRPhysics,
   // } from "@vixuslabs/newtonxr";
 } from "newtonxr";
-import React, { useState } from "react";
 
 const sessionOptions: XRSessionInit = {
   requiredFeatures: [

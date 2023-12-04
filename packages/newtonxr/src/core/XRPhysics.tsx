@@ -1,8 +1,8 @@
 "use client";
 
+import React, { Suspense } from "react";
 import { Physics } from "@react-three/rapier";
 import type { PhysicsProps } from "@react-three/rapier";
-import React, { Suspense } from "react";
 import type { Vector3Tuple } from "three";
 
 import XRConfig from "./XRConfig.js";

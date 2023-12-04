@@ -1,9 +1,9 @@
 "use client";
 
+import React, { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
 import { interactionGroups, RigidBody, vec3 } from "@react-three/rapier";
 import type { RapierRigidBody } from "@react-three/rapier";
-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
 import { Grabbable } from "../core/Grabbable.js";
 import type { GrabProps, RigidAndMeshRefs } from "../core/Grabbable.js";

@@ -1,5 +1,6 @@
 "use client";
 
+import React, { Suspense, useRef } from "react";
 import {
   DynamicHandModel,
   FocusStateGuard,
@@ -10,7 +11,6 @@ import type { InputDeviceFunctions } from "@coconut-xr/xinteraction/react";
 import { useFrame } from "@react-three/fiber";
 import { interactionGroups, RigidBody } from "@react-three/rapier";
 import type { RapierRigidBody } from "@react-three/rapier";
-import React, { Suspense, useRef } from "react";
 import { Quaternion, Vector3 } from "three";
 
 interface SpacialHandProps {
