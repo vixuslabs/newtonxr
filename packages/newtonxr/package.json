@@ -34,7 +34,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "dev": "pnpm run build -- --watch",
+    "dev": "pnpm run build --watch",
     "lint": "eslint \"**/*.{ts,tsx}\" --max-warnings 0",
     "clean": "git clean -xdf dist node_modules",
     "typecheck": "tsc --noEmit"

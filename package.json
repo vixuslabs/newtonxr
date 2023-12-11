@@ -15,6 +15,7 @@
     "clean:workspaces": "turbo clean",
     "dev": "turbo dev --filter playground",
     "dev:docs": "turbo dev --filter docs",
+    "dev:pg": "turbo dev --filter=\"./packages/*\" --filter=playground",
     "dev:all": "turbo dev",
     "dev:newton": "turbo dev --filter \"./packages/*\"",
     "lint": "turbo lint",
