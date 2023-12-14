@@ -35,44 +35,56 @@ export function SpatialHand({
   const handWorldQuaternion = useRef<THREE.Quaternion>(new Quaternion());
   const handWorldScale = useRef<THREE.Vector3>(new Vector3());
 
+  const correctedLQuaternionY = useRef(
+    new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), -Math.PI / 2),
+  ).current;
+
+  const correctedLQuaternionZ = useRef(
+    new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), -Math.PI / 2),
+  ).current;
+
+  const correctedRQuaternionY = useRef(
+    new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI / 2),
+  ).current;
+
+  const correctedRQuaternionZ = useRef(
+    new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 2),
+  ).current;
+
   useFrame(() => {
     const handModel = handRef.current;
     const physicsHand = physicsRef.current;
-    if (handModel && physicsHand) {
-      console.log("-----------");
-
-      console.log("handModel", handModel);
-      console.log("handModel.position", handModel.position);
-      console.log("handModel.rotation", handModel.rotation);
-      // handWorldPosition.current.applyMatrix4(handModel.matrixWorld);
-      console.log("---");
-      // console.log("handModel.position", handModel.position);
-      // console.log("handModel.rotation", handModel.rotation);
-      // handModel.getWorldPosition(handWorldPosition.current);
-      // handWorldPosition.current.setFromMatrixPosition(handModel.matrix);
-      // handModel.getWorldQuaternion(handWorldQuaternion.current);
-      // console.log("handWorldPosition", handWorldPosition.current);
-      // console.log("handWorldQuaternion", handWorldQuaternion.current);
-
-      // physicsHand.setNextKinematicRotation(handWorldQuaternion.current);
-
+    if (handModel && physicsHand && inputSource.handedness !== "none") {
+      // console.log(`----- ${inputSource.handedness} hand ------`);
       handModel.matrix.decompose(
         handWorldPosition.current,
         handWorldQuaternion.current,
         handWorldScale.current,
       );
-      console.log("---");
 
-      console.log("handWorldPosition", handWorldPosition.current);
-      console.log("handWorldQuaternion", handWorldQuaternion.current);
+      if (inputSource.handedness === "left") {
+        handWorldQuaternion.current.multiplyQuaternions(
+          handWorldQuaternion.current,
+          correctedLQuaternionY,
+        );
+
+        handWorldQuaternion.current.multiplyQuaternions(
+          handWorldQuaternion.current,
+          correctedLQuaternionZ,
+        );
+      } else {
+        handWorldQuaternion.current.multiplyQuaternions(
+          handWorldQuaternion.current,
+          correctedRQuaternionY,
+        );
+        handWorldQuaternion.current.multiplyQuaternions(
+          handWorldQuaternion.current,
+          correctedRQuaternionZ,
+        );
+      }
 
       physicsHand.setNextKinematicTranslation(handWorldPosition.current);
       physicsHand.setNextKinematicRotation(handWorldQuaternion.current);
-
-      console.log("physicsHand.translation()", physicsHand.translation());
-      console.log("physicsHand.rotation()", physicsHand.rotation());
-
-      console.log("---------");
     }
   });
 
@@ -92,7 +104,7 @@ export function SpatialHand({
           type="kinematicPosition"
           colliders="trimesh"
           dominanceGroup={127}
-          // gravityScale={0}
+          ccd
         >
           <DynamicHandModel
             ref={handRef}
@@ -101,7 +113,13 @@ export function SpatialHand({
           >
             <HandBoneGroup
               rotationJoint="wrist"
-              joint={["thumb-tip", "index-finger-tip"]}
+              // rotationJoint="middle-finger-metacarpal"
+              joint={[
+                "thumb-tip",
+                "index-finger-tip",
+                "wrist",
+                "middle-finger-metacarpal",
+              ]}
             >
               <XSphereCollider
                 id={id}
