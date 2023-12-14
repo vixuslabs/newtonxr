@@ -39,5 +39,6 @@
       "@newtonxr/eslint-config/base",
       "@newtonxr/eslint-config/react"
     ]
-  }
+  },
+  "prettier": "../prettier.config.cjs"
 }

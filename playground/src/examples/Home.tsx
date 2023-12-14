@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { getInputSourceId } from "@coconut-xr/natuerlich";
 import { XRCanvas } from "@coconut-xr/natuerlich/defaults";
 import {
-  // NonImmersiveCamera,
+  FocusStateGuard,
   ImmersiveSessionOrigin,
   useEnterXR,
   useHeighestAvailableFrameRate,
@@ -11,21 +11,13 @@ import {
   useSessionChange,
   useSessionSupported,
 } from "@coconut-xr/natuerlich/react";
-// import XRPhysics from "@vixuslabs/newtonxr/core";
-// import Test from "newtonxr";
-
-// import PhysicalController from "../../src/PhysicalController";
-
-// import { BuildPhysicalMeshes, BuildPhysicalPlanes } from "../../src";
-
 import {
   BuildPhysicalMeshes,
   BuildPhysicalPlanes,
+  PhysHand,
   PhysicalBall,
   PhysicalController,
-  SpatialHand,
   XRPhysics,
-  // } from "@vixuslabs/newtonxr";
 } from "newtonxr";
 
 const sessionOptions: XRSessionInit = {
@@ -80,35 +72,42 @@ export default function Home() {
         // events={clippingEvents}
         gl={{ localClippingEnabled: true }}
       >
-        <XRPhysics debug>
-          {startSync && (
-            <>
-              <PhysicalBall position={[0, 1, -0.2]} />
-            </>
-          )}
-
-          <ImmersiveSessionOrigin>
-            <BuildPhysicalMeshes excludeGlobalMesh />
-            <BuildPhysicalPlanes />
-            {inputSources?.map((inputSource) =>
-              inputSource.hand ? (
-                // <GrabHand
-                <SpatialHand
-                  key={getInputSourceId(inputSource)}
-                  inputSource={inputSource}
-                  id={getInputSourceId(inputSource)}
-                  hand={inputSource.hand}
-                />
-              ) : (
-                <PhysicalController
-                  key={getInputSourceId(inputSource)}
-                  id={getInputSourceId(inputSource)}
-                  inputSource={inputSource}
-                />
-              ),
+        <FocusStateGuard>
+          <XRPhysics>
+            {startSync && (
+              <>
+                <PhysicalBall position={[0, 1.5, -0.2]} />
+              </>
             )}
-          </ImmersiveSessionOrigin>
-        </XRPhysics>
+
+            <ImmersiveSessionOrigin>
+              <BuildPhysicalMeshes excludeGlobalMesh />
+              <BuildPhysicalPlanes />
+
+              {/* Testing PhysHand */}
+              {inputSources?.map((inputSource) =>
+                inputSource.hand ? (
+                  <PhysHand
+                    key={getInputSourceId(inputSource)}
+                    inputSource={inputSource}
+                    id={getInputSourceId(inputSource)}
+                    hand={inputSource.hand}
+                  />
+                ) : null,
+              )}
+
+              {inputSources?.map((inputSource) =>
+                inputSource.hand ? null : ( // /> //   hand={inputSource.hand} //   id={getInputSourceId(inputSource)} //   inputSource={inputSource} //   key={getInputSourceId(inputSource)} // <SpatialHand // <GrabHand
+                  <PhysicalController
+                    key={getInputSourceId(inputSource)}
+                    id={getInputSourceId(inputSource)}
+                    inputSource={inputSource}
+                  />
+                ),
+              )}
+            </ImmersiveSessionOrigin>
+          </XRPhysics>
+        </FocusStateGuard>
       </XRCanvas>
     </div>
   );
