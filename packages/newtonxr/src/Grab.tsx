@@ -1,19 +1,11 @@
 "use client";
 
-import React, {
-  forwardRef,
-  useMemo,
-  // useCallback,
-  type MutableRefObject,
-} from "react";
-import { type ThreeEvent } from "@react-three/fiber";
+import React, { forwardRef, useMemo, type MutableRefObject } from "react";
+import type { ThreeEvent } from "@react-three/fiber";
 // import { useNewton } from "../state.js";
 // import { useControllersState } from "../hooks/useControllersState.js";
 
-import {
-  // vec3,
-  type RapierRigidBody,
-} from "@react-three/rapier";
+import type { RapierRigidBody } from "@react-three/rapier";
 
 // import { useControllersState, useHeldObjects } from "./index.js";
 

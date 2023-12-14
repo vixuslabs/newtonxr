@@ -4,7 +4,6 @@ import React, {
   forwardRef,
   useMemo,
   useRef,
-  // useCallback,
   type MutableRefObject,
 } from "react";
 import { isXIntersection } from "@coconut-xr/xinteraction";
@@ -14,14 +13,10 @@ import {
   // vec3,
   type RapierRigidBody,
 } from "@react-three/rapier";
-// import { Matrix4, Quaternion, Vector3 } from "three";
 import { Vector3 } from "three";
 
-// import { useNewton } from "../state.js";
 import { useControllersState } from "../hooks/useControllersState.js";
 import { useHeldObjects } from "../hooks/useHeldObjects.js";
-
-// import { vec3 } from "@react-three/rapier";
 
 export interface RigidAndMeshRefs {
   rigidRef: React.RefObject<RapierRigidBody>;
