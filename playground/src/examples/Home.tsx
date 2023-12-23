@@ -72,6 +72,8 @@ export default function Home() {
         // events={clippingEvents}
         gl={{ localClippingEnabled: true }}
       >
+        {/* Lighting */}
+        <ambientLight intensity={1} />
         <FocusStateGuard>
           <XRPhysics>
             {startSync && (
