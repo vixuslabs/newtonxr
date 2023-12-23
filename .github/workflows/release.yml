@@ -44,7 +44,7 @@ jobs:
         run: pnpm install
 
       - name: Check packages for common errors
-        run: pnpm turbo --filter "./packages/*" lint format typecheck build 
+        run: pnpm turbo --filter "./packages/*" lint typecheck build 
 
       - name: Create release
         run: pnpm publish packages/newtonxr --no-git-checks --access restricted

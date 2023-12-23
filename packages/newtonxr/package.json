@@ -1,5 +1,5 @@
 {
-  "name": "newtonxr",
+  "name": "@vixuslabs/newtonxr",
   "version": "0.0.2",
   "license": "MIT",
   "type": "module",
