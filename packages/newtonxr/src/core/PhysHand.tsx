@@ -1,5 +1,3 @@
-/* eslint-disable react/display-name */
-
 import React, {
   createRef,
   forwardRef,
@@ -19,11 +17,17 @@ import {
   vec3,
   type RapierRigidBody,
 } from "@react-three/rapier";
-import type { Group, Object3D } from "three";
+import type { Group, Mesh, Object3D } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 import { joints } from "../constants.js";
+import { SpatialHand } from "../SpatialHand.js";
+
+export interface JointRefs {
+  physicsRef: RefObject<RapierRigidBody>;
+  meshRef: RefObject<Mesh>;
+}
 
 const assignBonePhysRefs = (motionHandObject: MotionHand) => {
   const mesh = motionHandObject.getObjectByProperty("type", "SkinnedMesh")!;
@@ -31,7 +35,8 @@ const assignBonePhysRefs = (motionHandObject: MotionHand) => {
   mesh.castShadow = true;
   mesh.receiveShadow = true;
 
-  const boneRigidBodyMap = new Map<XRHandJoint, RefObject<RapierRigidBody>>();
+  const jointsMap = new Map<XRHandJoint, JointRefs>();
+  const jointMeshRef = new Map<XRHandJoint, RefObject<Object3D>>();
 
   for (const jointName of joints) {
     const bone = motionHandObject.getObjectByName(jointName);
@@ -39,42 +44,45 @@ const assignBonePhysRefs = (motionHandObject: MotionHand) => {
       continue;
     }
 
-    const ref = createRef<RapierRigidBody>();
+    const physicsRef = createRef<RapierRigidBody>();
+    const jointRef = createRef<Mesh>();
 
-    boneRigidBodyMap.set(jointName, ref);
+    jointsMap.set(jointName, {
+      physicsRef: physicsRef,
+      meshRef: jointRef,
+    });
+
+    jointMeshRef.set(jointName, jointRef);
   }
-
-  return boneRigidBodyMap;
+  return jointsMap;
 };
 
 const updatePhysBone = (
   object: MotionHand,
   frame: XRFrame,
   referenceSpace: XRReferenceSpace,
-  bonePhysRefs: Map<XRHandJoint, RefObject<RapierRigidBody>>,
+  jointRefs: Map<XRHandJoint, JointRefs>,
 ) => {
-  console.log("\n------ updatePhysBone ------");
   let poseValid = true;
+
   for (const inputJoint of object.hand.values()) {
     const bone = object.boneMap.get(inputJoint.jointName);
-    const bonePhysRef = bonePhysRefs.get(inputJoint.jointName);
-    if (!bone || !bonePhysRef) {
-      console.log(`bone: `, bone);
-      console.log(`bonePhysRef: `, bonePhysRef);
+    const jointMaps = jointRefs.get(inputJoint.jointName);
+    if (!bone || !jointMaps) {
       continue;
     }
 
+    const jointPhysRef = jointMaps.physicsRef;
     const jointPose = frame.getJointPose?.(inputJoint, referenceSpace);
-    console.log(`jointPose: `, jointPose);
-    console.log(`bonePhysRef.current: `, bonePhysRef.current);
-    if (jointPose != null && bonePhysRef.current != null) {
+
+    if (jointPose != null && jointPhysRef.current != null) {
       const { position, orientation } = jointPose.transform;
 
-      bonePhysRef.current.setNextKinematicTranslation(
+      jointPhysRef.current.setNextKinematicTranslation(
         vec3({ x: position.x, y: position.y, z: position.z }),
       );
 
-      bonePhysRef.current.setNextKinematicRotation(
+      jointPhysRef.current.setNextKinematicRotation(
         quat({
           x: orientation.x,
           y: orientation.y,
@@ -87,66 +95,11 @@ const updatePhysBone = (
 
     if (inputJoint.jointName === "wrist") {
       poseValid = false;
-      break; //wrist is untracked => everything else is unuseable
+      break;
     }
   }
 
-  console.log("------------------------\n");
-
   return poseValid;
-};
-
-interface HandBoneProps {
-  boneName: string;
-  boneObject: Object3D;
-  boneRef: React.MutableRefObject<RapierRigidBody>;
-  size: { radius: number; length: number };
-}
-
-export const HandBone = ({
-  boneName,
-  boneObject,
-  boneRef,
-  size,
-}: HandBoneProps) => {
-  //   const { world } = useRapier();
-
-  boneRef.current.setNextKinematicTranslation(
-    vec3({
-      x: boneObject.position.x,
-      y: boneObject.position.y,
-      z: boneObject.position.z,
-    }),
-  );
-
-  boneRef.current.setNextKinematicRotation(
-    quat({
-      x: boneObject.quaternion.x,
-      y: boneObject.quaternion.y,
-      z: boneObject.quaternion.z,
-      w: boneObject.quaternion.w,
-    }),
-  );
-
-  return (
-    <RigidBody name={boneName} ref={boneRef}>
-      <mesh>
-        <cylinderGeometry args={[size.radius, size.radius, size.length, 10]} />
-        <meshBasicMaterial wireframe color={"red"} />
-      </mesh>
-    </RigidBody>
-  );
-};
-
-export const BoneJoint = ({
-  boneA,
-  boneB,
-}: {
-  boneA: RefObject<RapierRigidBody>;
-  boneB: RefObject<RapierRigidBody>;
-}) => {
-  console.log(`boneA: `, boneA);
-  console.log(`boneB: `, boneB);
 };
 
 export const PhysHand = forwardRef<
@@ -155,11 +108,9 @@ export const PhysHand = forwardRef<
     hand: XRHand;
     inputSource: XRInputSource;
     id: number;
-    // children?: React.ReactNode;
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 >(({ hand, inputSource, id }, ref) => {
-  //   const handGroupRef = useRef<Group>(null);
   const handUrl = getMotionHandModelUrl(inputSource.handedness);
 
   const { scene: handScene } = useLoader(GLTFLoader, handUrl);
@@ -171,12 +122,10 @@ export const PhysHand = forwardRef<
     [clonedHandScene, hand],
   );
 
-  const boneRefsMap = useMemo(
+  const jointsMap = useMemo(
     () => assignBonePhysRefs(motionHandObject),
     [motionHandObject],
   );
-
-  console.log(`motionHandObject: `, motionHandObject);
 
   const motionHandRef = useRef<MotionHand>(motionHandObject);
 
@@ -196,36 +145,45 @@ export const PhysHand = forwardRef<
       motionHand.visible = false;
       return;
     }
-    // const poseValid = updateMotionHand(motionHand, frame, referenceSpace);
     const validPose = updatePhysBone(
       motionHand,
       frame,
       referenceSpace,
-      boneRefsMap,
+      jointsMap,
     );
     motionHand.visible = validPose;
   });
 
+  // useImperativeHandle(ref, () => motionHandRef, [motionHandRef]);
+
   return (
     <>
       <group name="hand">
-        {Array.from(boneRefsMap.entries()).map(([boneName, boneRef]) => (
-          <RigidBody
-            name={boneName}
-            ref={boneRef}
-            key={boneName}
-            type="kinematicPosition"
-            colliders="cuboid"
-            restitution={0}
-            ccd
-          >
-            <mesh>
-              <boxGeometry args={[0.01, 0.01, 0.01]} />
-              <meshBasicMaterial wireframe color={"red"} />
-            </mesh>
-          </RigidBody>
-        ))}
+        {/* Joints */}
+        {Array.from(jointsMap.entries()).map(
+          ([boneName, { physicsRef, meshRef }]) => (
+            <RigidBody
+              name={boneName}
+              ref={physicsRef}
+              key={boneName + String(id)}
+              type="kinematicPosition"
+              colliders="trimesh"
+              restitution={0}
+              ccd
+            >
+              <mesh ref={meshRef}>
+                <sphereGeometry args={[0.002, 8, 8]} />
+                <meshBasicMaterial wireframe color={"white"} />
+              </mesh>
+            </RigidBody>
+          ),
+        )}
+        {/* Bones */}
+        {/* <HandBones jointsMap={jointsMap} /> */}
+        <SpatialHand hand={hand} inputSource={inputSource} id={id} />
       </group>
     </>
   );
 });
+
+PhysHand.displayName = "PhysHand";
