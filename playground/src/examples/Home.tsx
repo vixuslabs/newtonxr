@@ -18,7 +18,7 @@ import {
   PhysicalBall,
   PhysicalController,
   XRPhysics,
-} from "newtonxr";
+} from "@vixuslabs/newtonxr";
 
 const sessionOptions: XRSessionInit = {
   requiredFeatures: [

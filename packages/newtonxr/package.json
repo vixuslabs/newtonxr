@@ -19,6 +19,7 @@
   ],
   "exports": {
     "./package.json": "./package.json",
+    "./tsconfig.json": "./tsconfig.json",
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
