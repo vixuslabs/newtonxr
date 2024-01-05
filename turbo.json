@@ -6,7 +6,7 @@
       "dependsOn": ["^topo"]
     },
     "build": {
-      "dependsOn": ["topo", "^lint", "^typecheck", "^build"],
+      "dependsOn": ["topo", "lint", "typecheck", "^build"],
       "outputs": [
         "dist/**",
         ".next/**",
