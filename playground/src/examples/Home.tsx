@@ -94,12 +94,13 @@ export default function Home() {
                     inputSource={inputSource}
                     id={getInputSourceId(inputSource)}
                     hand={inputSource.hand}
+                    // withDigitalHand
                   />
                 ) : null,
               )}
 
               {inputSources?.map((inputSource) =>
-                inputSource.hand ? null : ( // /> //   hand={inputSource.hand} //   id={getInputSourceId(inputSource)} //   inputSource={inputSource} //   key={getInputSourceId(inputSource)} // <SpatialHand // <GrabHand
+                inputSource.hand ? null : (
                   <PhysicalController
                     key={getInputSourceId(inputSource)}
                     id={getInputSourceId(inputSource)}
