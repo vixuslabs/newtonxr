@@ -7,7 +7,6 @@ on:
 env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
 jobs:
   release:
