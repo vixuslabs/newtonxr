@@ -42,9 +42,37 @@ export interface InteractionPoint {
   heldObjectId: string | null;
 }
 
+type HandBoneNames =
+  | "wrist--thumb-metacarpal"
+  | "thumb-metacarpal--thumb-phalanx-proximal"
+  | "thumb-phalanx-proximal--thumb-phalanx-distal"
+  | "thumb-phalanx-distal--thumb-tip"
+  | "wrist--index-finger-metacarpal"
+  | "index-finger-metacarpal--index-finger-phalanx-proximal"
+  | "index-finger-phalanx-proximal--index-finger-phalanx-intermediate"
+  | "index-finger-phalanx-intermediate--index-finger-phalanx-distal"
+  | "index-finger-phalanx-distal--index-finger-tip"
+  | "wrist--middle-finger-metacarpal"
+  | "middle-finger-metacarpal--middle-finger-phalanx-proximal"
+  | "middle-finger-phalanx-proximal--middle-finger-phalanx-intermediate"
+  | "middle-finger-phalanx-intermediate--middle-finger-phalanx-distal"
+  | "middle-finger-phalanx-distal--middle-finger-tip"
+  | "wrist--ring-finger-metacarpal"
+  | "ring-finger-metacarpal--ring-finger-phalanx-proximal"
+  | "ring-finger-phalanx-proximal--ring-finger-phalanx-intermediate"
+  | "ring-finger-phalanx-intermediate--ring-finger-phalanx-distal"
+  | "ring-finger-phalanx-distal--ring-finger-tip"
+  | "wrist--pinky-finger-metacarpal"
+  | "pinky-finger-metacarpal--pinky-finger-phalanx-proximal"
+  | "pinky-finger-phalanx-proximal--pinky-finger-phalanx-intermediate"
+  | "pinky-finger-phalanx-intermediate--pinky-finger-phalanx-distal"
+  | "pinky-finger-phalanx-distal--pinky-finger-tip";
+
+type BoneMap = Map<HandBoneNames, BoneInfo>;
+
 interface HandProperties {
   joints: JointInfo[];
-  bones: BoneInfo[];
+  bones: BoneMap;
 }
 
 export type NewtonState = {
@@ -276,11 +304,27 @@ export const useNewton = create(
     ): void => {
       if (handedness === "none") return;
 
-      const boneInfo: BoneInfo[] = [];
+      let newtonBones = get().hands[handedness]?.bones;
 
-      const newtonBones = get().hands[handedness]?.bones;
+      if (!newtonBones) {
+        set((state) => ({
+          ...state,
+          hands: {
+            ...state.hands,
+            [handedness]: {
+              ...state.hands[handedness],
+              bones: new Map<HandBoneNames, BoneInfo>(),
+            },
+          },
+        }));
+        newtonBones =
+          get().hands[handedness]?.bones ?? new Map<HandBoneNames, BoneInfo>();
+      }
 
-      console.log("newtonBones", newtonBones);
+      if (!newtonBones) {
+        console.log("no bones");
+        return;
+      }
 
       for (const inputJointSpace of motionHand.hand.values()) {
         const startJointInfo = jointMap.get(
@@ -353,18 +397,39 @@ export const useNewton = create(
               endJointInfo.properties.position,
             );
 
-            const newtonBones = get().hands[handedness]?.bones;
-
-            if (newtonBones?.length === 0) {
+            if (newtonBones?.size === 0) {
               console.log("no bones in store yet");
             }
 
-            let storedBone = get().hands[handedness]?.bones.find((bone) => {
-              return (
-                bone.startJoint.name === startJointInfo.name &&
-                bone.endJoint.name === endJointInfo.name
-              );
-            });
+            // let storedBone = newtonBones?.find((bone) => {
+            //   return (
+            //     bone.startJoint.name === startJointInfo.name &&
+            //     bone.endJoint.name === endJointInfo.name
+            //   );
+            // });
+
+            // let storedBoneIndex = -1;
+            // let storedBone: BoneInfo | undefined;
+
+            // for (let index = 0; index < newtonBones.length; index++) {
+            //   const bone = newtonBones[index];
+            //   if (!bone) continue;
+            //   if (
+            //     bone.startJoint.name === startJointInfo.name &&
+            //     bone.endJoint.name === endJointInfo.name
+            //   ) {
+            //     storedBone = bone;
+            //     storedBoneIndex = index;
+            //     break; // exit the loop early
+            //   }
+            // }
+
+            let storedBone = newtonBones?.get(
+              `${startJointInfo.name}--${endJointInfo.name}` as HandBoneNames,
+            );
+
+            // console.log("storedBoneIndex: ", storedBoneIndex);
+            // console.log("storedBone: ", storedBone);
 
             if (!storedBone) {
               console.log(
@@ -414,7 +479,7 @@ export const useNewton = create(
               // return;
             }
 
-            const { vector, position, direction, quaternion, object } =
+            const { vector, position, direction, quaternion } =
               get().reservedThreeValues;
 
             const ref = storedBone.boneRef;
@@ -429,32 +494,45 @@ export const useNewton = create(
             // copying bone direction to reserved direction Vector3
             direction.copy(startPos).sub(endPos).normalize();
 
-            // copying bone position to reserved threejs object
-            object.position.copy(position);
+            const vectorIsCorrect =
+              vector.x === 0 && vector.y === 1 && vector.z === 0;
 
-            // creating target position from the bone direction and position vectors
-            vector.copy(position).add(direction);
-
-            // setting the bone orientation to look at the target position
-            object.lookAt(vector);
-
-            quaternion.setFromUnitVectors(vector.set(0, 1, 0), direction);
+            quaternion.setFromUnitVectors(
+              vectorIsCorrect ? vector : vector.set(0, 1, 0),
+              direction,
+            );
 
             if (ref.current && updateRapier) {
               ref.current.setNextKinematicTranslation(position);
               ref.current.setNextKinematicRotation(quaternion);
             }
 
-            boneInfo.push({
+            const updatedBone: BoneInfo = {
               startJoint: startJointInfo,
               endJoint: endJointInfo,
               bone: {
-                position,
-                orientation: object.quaternion,
+                position: position.clone(),
+                orientation: quaternion.clone(),
+                // orientation: object.quaternion,
               },
               boneRef: ref,
               height: storedBone.height ?? height,
-            });
+            };
+
+            const boneName = `${startJointInfo.name}--${endJointInfo.name}`;
+
+            newtonBones?.set(boneName as HandBoneNames, updatedBone);
+
+            // set((state) => ({
+            //   ...state,
+            //   hands: {
+            //     ...state.hands,
+            //     [handedness]: {
+            //       ...state.hands[handedness],
+            //       bones: newtonBones,
+            //     },
+            //   },
+            // }));
           }
         });
       }
@@ -465,7 +543,7 @@ export const useNewton = create(
           ...state.hands,
           [handedness]: {
             ...state.hands[handedness],
-            bones: boneInfo,
+            bones: newtonBones,
           },
         },
       }));

@@ -129,18 +129,10 @@ export const PhysHand = forwardRef<
     <>
       <group name={`${inputSource.handedness}-hand`} ref={ref}>
         {/* Joints */}
-        {hands[inputSource.handedness]?.bones.map(
-          ({ startJoint, endJoint, height, boneRef }) => {
+        {Array.from(hands[inputSource.handedness]?.bones.entries() ?? []).map(
+          ([name, { height, boneRef }]) => {
             return (
-              <Fragment
-                key={
-                  inputSource.handedness +
-                  "-" +
-                  startJoint.name +
-                  "-" +
-                  endJoint.name
-                }
-              >
+              <Fragment key={name}>
                 <HandBone ref={boneRef} height={height}>
                   <mesh>
                     <boxGeometry args={[0.005, height, 0.004]} />
