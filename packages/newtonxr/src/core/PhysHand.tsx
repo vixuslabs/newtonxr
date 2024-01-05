@@ -1,8 +1,9 @@
 import React, {
-  createRef,
   forwardRef,
+  Fragment,
   useMemo,
   useRef,
+  type MutableRefObject,
   type RefObject,
 } from "react";
 import {
@@ -11,106 +12,74 @@ import {
   type MotionHand,
 } from "@coconut-xr/natuerlich";
 import { useFrame, useLoader } from "@react-three/fiber";
-import {
-  quat,
-  RigidBody,
-  vec3,
-  type RapierRigidBody,
-} from "@react-three/rapier";
-import type { Group, Mesh, Object3D } from "three";
+import type { RapierRigidBody } from "@react-three/rapier";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
-import { joints } from "../constants.js";
+import { HandBone, useNewton } from "../core/index.js";
 import { SpatialHand } from "../SpatialHand.js";
 
-export interface JointRefs {
-  physicsRef: RefObject<RapierRigidBody>;
-  meshRef: RefObject<Mesh>;
+interface JointProperties {
+  position: THREE.Vector3;
+  orientation: THREE.Quaternion;
+  matrix?: THREE.Matrix4;
+  linearVelocity?: THREE.Vector3;
+  angularVelocity?: THREE.Vector3;
 }
 
-const assignBonePhysRefs = (motionHandObject: MotionHand) => {
-  const mesh = motionHandObject.getObjectByProperty("type", "SkinnedMesh")!;
-  mesh.frustumCulled = false;
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
+export interface JointInfo {
+  name: XRHandJoint;
+  properties: JointProperties;
+  readonly isTipJoint: boolean;
+}
 
-  const jointsMap = new Map<XRHandJoint, JointRefs>();
-  const jointMeshRef = new Map<XRHandJoint, RefObject<Object3D>>();
+export interface RapierBone {
+  position: THREE.Vector3;
+  orientation: THREE.Quaternion;
+}
 
-  for (const jointName of joints) {
-    const bone = motionHandObject.getObjectByName(jointName);
-    if (bone == null) {
-      continue;
-    }
+export interface BoneInfo {
+  startJoint: JointInfo;
+  endJoint: JointInfo;
+  bone: RapierBone;
+  boneRef: RefObject<RapierRigidBody>;
+  position?: THREE.Vector3;
+  orientation?: THREE.Quaternion;
+  readonly height?: number;
+}
+export interface HandInfo {
+  handedness: XRHandedness;
+  boneInfo: BoneInfo[];
+}
 
-    const physicsRef = createRef<RapierRigidBody>();
-    const jointRef = createRef<Mesh>();
+export interface JointRefs {
+  physicsRef: MutableRefObject<RapierRigidBody>;
+  meshRef: MutableRefObject<THREE.Mesh>;
+}
 
-    jointsMap.set(jointName, {
-      physicsRef: physicsRef,
-      meshRef: jointRef,
-    });
-
-    jointMeshRef.set(jointName, jointRef);
-  }
-  return jointsMap;
-};
-
-const updatePhysBone = (
-  object: MotionHand,
-  frame: XRFrame,
-  referenceSpace: XRReferenceSpace,
-  jointRefs: Map<XRHandJoint, JointRefs>,
-) => {
-  let poseValid = true;
-
-  for (const inputJoint of object.hand.values()) {
-    const bone = object.boneMap.get(inputJoint.jointName);
-    const jointMaps = jointRefs.get(inputJoint.jointName);
-    if (!bone || !jointMaps) {
-      continue;
-    }
-
-    const jointPhysRef = jointMaps.physicsRef;
-    const jointPose = frame.getJointPose?.(inputJoint, referenceSpace);
-
-    if (jointPose != null && jointPhysRef.current != null) {
-      const { position, orientation } = jointPose.transform;
-
-      jointPhysRef.current.setNextKinematicTranslation(
-        vec3({ x: position.x, y: position.y, z: position.z }),
-      );
-
-      jointPhysRef.current.setNextKinematicRotation(
-        quat({
-          x: orientation.x,
-          y: orientation.y,
-          z: orientation.z,
-          w: orientation.w,
-        }),
-      );
-      continue;
-    }
-
-    if (inputJoint.jointName === "wrist") {
-      poseValid = false;
-      break;
-    }
-  }
-
-  return poseValid;
-};
-
+/**
+ * PhysHand component represents a physical hand in a XR scene.
+ * It renders the hand bones and optionally a digital hand.
+ *
+ * @component
+ * @param hand - The XRHand object representing the physical hand.
+ * @param inputSource - The XRInputSource object representing the input source of the hand.
+ * @param id - The unique identifier for the XRHand.
+ * @param withDigitalHand - Optional. Specifies whether to render a digital hand along with the physical hand. Default is false.
+ * @returns The PhysHand component.
+ */
 export const PhysHand = forwardRef<
-  Group,
+  THREE.Group,
   {
     hand: XRHand;
     inputSource: XRInputSource;
     id: number;
+    withDigitalHand?: boolean;
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
->(({ hand, inputSource, id }, ref) => {
+>(({ hand, inputSource, id, withDigitalHand = false }, ref) => {
+  const updateHandBones = useNewton((state) => state.updateHandBones);
+  const hands = useNewton((state) => state.hands);
+  // const joints = useRef(defaultHandJointValues);
   const handUrl = getMotionHandModelUrl(inputSource.handedness);
 
   const { scene: handScene } = useLoader(GLTFLoader, handUrl);
@@ -122,14 +91,9 @@ export const PhysHand = forwardRef<
     [clonedHandScene, hand],
   );
 
-  const jointsMap = useMemo(
-    () => assignBonePhysRefs(motionHandObject),
-    [motionHandObject],
-  );
-
   const motionHandRef = useRef<MotionHand>(motionHandObject);
 
-  useFrame((state, delta, frame: XRFrame | undefined) => {
+  useFrame((state, _, frame) => {
     const motionHand = motionHandRef.current;
 
     if (
@@ -141,49 +105,204 @@ export const PhysHand = forwardRef<
       return;
     }
     const referenceSpace = state.gl.xr.getReferenceSpace();
-    if (referenceSpace == null) {
+    if (referenceSpace === null) {
       motionHand.visible = false;
       return;
     }
-    const validPose = updatePhysBone(
-      motionHand,
-      frame,
-      referenceSpace,
-      jointsMap,
-    );
-    motionHand.visible = validPose;
+
+    if (motionHand.visible) {
+      updateHandBones(
+        motionHand,
+        inputSource.handedness,
+        frame,
+        referenceSpace,
+        true,
+      );
+    }
   });
 
-  // useImperativeHandle(ref, () => motionHandRef, [motionHandRef]);
+  if (inputSource.handedness === "none") return null;
+
+  if (hands[inputSource.handedness] === null) return null;
 
   return (
     <>
-      <group name="hand">
+      <group name={`${inputSource.handedness}-hand`} ref={ref}>
         {/* Joints */}
-        {Array.from(jointsMap.entries()).map(
-          ([boneName, { physicsRef, meshRef }]) => (
-            <RigidBody
-              name={boneName}
-              ref={physicsRef}
-              key={boneName + String(id)}
-              type="kinematicPosition"
-              colliders="trimesh"
-              restitution={0}
-              ccd
-            >
-              <mesh ref={meshRef}>
-                <sphereGeometry args={[0.002, 8, 8]} />
-                <meshBasicMaterial wireframe color={"white"} />
-              </mesh>
-            </RigidBody>
-          ),
+        {hands[inputSource.handedness]?.bones.map(
+          ({ startJoint, endJoint, height, boneRef }) => {
+            return (
+              <Fragment
+                key={
+                  inputSource.handedness +
+                  "-" +
+                  startJoint.name +
+                  "-" +
+                  endJoint.name
+                }
+              >
+                <HandBone ref={boneRef} height={height}>
+                  <mesh>
+                    <boxGeometry args={[0.005, height, 0.004]} />
+                    <meshBasicMaterial
+                      color={"white"}
+                      transparent={!motionHandRef.current.visible}
+                      opacity={motionHandRef.current.visible ? 1 : 0}
+                    />
+                  </mesh>
+                </HandBone>
+              </Fragment>
+            );
+          },
         )}
-        {/* Bones */}
-        {/* <HandBones jointsMap={jointsMap} /> */}
-        <SpatialHand hand={hand} inputSource={inputSource} id={id} />
+
+        {withDigitalHand && (
+          <SpatialHand hand={hand} inputSource={inputSource} id={id} />
+        )}
       </group>
     </>
   );
 });
 
 PhysHand.displayName = "PhysHand";
+
+// keeping this for reference
+// return (
+//   <>
+//     <group name="hand" ref={ref}>
+//       {/* Joints */}
+//       {Array.from(jointsMap.entries()).map(
+//         ([boneName, jointsRef], i, arr) => {
+//           console.log("\n-------------------");
+//           console.log("boneName ", boneName);
+//           console.log("jointsRef ", jointsRef);
+//           console.log("i ", i);
+//           console.log("-------------------\n");
+//           if (i < arr.length - 1) {
+//             const nextBone = arr[i + 1];
+
+//             console.log(`nextBone ${i}`, nextBone);
+
+//             if (nextBone == null) {
+//               console.log("nextBone null ");
+//               return null;
+//             }
+
+//             // if (!nextBone[1].physicsRef.current) {
+//             //   console.log("nextBone[1].physicsRef.current undefined ");
+//             //   return null;
+//             // }
+
+//             // if (jointsRef.physicsRef.current === null) {
+//             //   console.log("jointsRef.physicsRef.current null ");
+//             //   return null;
+//             // } else if (nextBone[1].physicsRef.current === null) {
+//             //   console.log("nextBone[1].physicsRef.current null ");
+//             //   return null;
+//             // }
+
+//             const bone = {
+//               startJoint: jointsRef.physicsRef,
+//               endJoint: nextBone[1].physicsRef,
+//             };
+
+//             // console.log("bone ", bone);
+//             console.log(
+//               " jointsRef.meshRef.current",
+//               jointsRef.meshRef.current,
+//             );
+
+//             // const v1 = vec3(jointsRef.physicsRef.current.translation());
+//             // const v2 = vec3(nextBone[1].physicsRef.current.translation());
+
+//             // console.log("v1 ", v1);
+//             // console.log("v2 ", v2);
+
+//             // const height = jointsRef.meshRef.current.position.distanceTo(
+//             //   nextBone![1].meshRef.current.position,
+//             // );
+//             const height = 0.02;
+
+//             return (
+//               <Fragment key={boneName}>
+//                 <Bone
+//                   key={boneName + String(id) + "bone"}
+//                   // ref={boneJointsRef}
+//                   startJoint={bone.startJoint}
+//                   endJoint={bone.endJoint}
+//                   height={height}
+//                 >
+//                   <mesh>
+//                     {/* <cylinderGeometry args={[0.003, 0.003, height, 8]} /> */}
+//                     <boxGeometry args={[0.003, height, 0.003]} />
+//                     <meshBasicMaterial
+//                       // wireframe
+//                       color={"white"}
+//                       transparent={!motionHandRef.current.visible}
+//                       opacity={motionHandRef.current.visible ? 1 : 0}
+//                     />
+//                   </mesh>
+//                 </Bone>
+//                 {/* Joint */}
+//                 {/* NO NEED FOR RIGID BODY AROUND JOINTS */}
+//                 <RigidBody
+//                   name={boneName}
+//                   ref={jointsRef.physicsRef}
+//                   key={boneName + String(id) + "joint"}
+//                   type="kinematicPosition"
+//                   colliders="ball"
+//                   restitution={0}
+//                   collisionGroups={interactionGroups(
+//                     inputSource.handedness === "left" ? [1] : [2],
+//                     // [],
+//                     inputSource.handedness === "left" ? [2, 8] : [1, 8],
+//                   )}
+//                   // ccd
+//                 >
+//                   <mesh ref={jointsRef.meshRef}>
+//                     <sphereGeometry args={[0.002, 8, 8]} />
+//                     <meshBasicMaterial wireframe color={"white"} />
+//                   </mesh>
+//                 </RigidBody>
+//               </Fragment>
+//             );
+//           } else {
+//             console.log("i < arr.length - 1 is: ", i < arr.length - 1);
+//             return null;
+//           }
+//         },
+//       )}
+
+//       {/* <SpatialHand hand={hand} inputSource={inputSource} id={id} /> */}
+//     </group>
+//   </>
+// );
+
+// return (
+//   <>
+//     <group name="hand">
+//       {/* Joints */}
+//       {Array.from(jointsMap.entries()).map(
+//         ([boneName, { physicsRef, meshRef }]) => (
+//           <RigidBody
+//             name={boneName}
+//             ref={physicsRef}
+//             key={boneName + String(id)}
+//             type="kinematicPosition"
+//             colliders="trimesh"
+//             restitution={0}
+//             ccd
+//           >
+//             <mesh ref={meshRef}>
+//               <sphereGeometry args={[0.002, 8, 8]} />
+//               <meshBasicMaterial wireframe color={"white"} />
+//             </mesh>
+//           </RigidBody>
+//         ),
+//       )}
+//       {/* Bones */}
+//       {/* <HandBones jointsMap={jointsMap} /> */}
+//       <SpatialHand hand={hand} inputSource={inputSource} id={id} />
+//     </group>
+//   </>
+// );

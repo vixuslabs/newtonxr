@@ -1,7 +1,18 @@
+import { createRef } from "react";
+import type { MotionHand } from "@coconut-xr/natuerlich";
 import type { RootState } from "@react-three/fiber";
+import type { RapierRigidBody } from "@react-three/rapier";
+import { Object3D, Quaternion, Vector3 } from "three";
 import { create } from "zustand";
 import type { StoreApi } from "zustand";
 import { combine } from "zustand/middleware";
+
+import {
+  HandJoints,
+  jointConnections,
+  defaultHandJointValues as jointMap,
+} from "../constants.js";
+import type { BoneInfo, JointInfo } from "./PhysHand.js";
 
 export interface GamepadAxes {
   name: string;
@@ -31,14 +42,19 @@ export interface InteractionPoint {
   heldObjectId: string | null;
 }
 
+interface HandProperties {
+  joints: JointInfo[];
+  bones: BoneInfo[];
+}
+
 export type NewtonState = {
   controllers: {
     left: XRController | null;
     right: XRController | null;
   };
   hands: {
-    left: XRHand | null;
-    right: XRHand | null;
+    left: HandProperties | null;
+    right: HandProperties | null;
   };
   interactionPoints: {
     left: InteractionPoint | null;
@@ -49,6 +65,13 @@ export type NewtonState = {
     right: string | null;
   };
   collisions: string[];
+  reservedThreeValues: {
+    vector: THREE.Vector3;
+    position: THREE.Vector3;
+    direction: THREE.Vector3;
+    quaternion: THREE.Quaternion;
+    object: THREE.Object3D;
+  };
 } & {
   onNextFrameCallbacks: Set<
     (state: RootState, delta: number, frame: XRFrame | undefined) => void
@@ -74,9 +97,21 @@ const initialState: NewtonState = {
     right: null,
   },
   collisions: ["hey"],
+  reservedThreeValues: {
+    vector: new Vector3(),
+    position: new Vector3(),
+    direction: new Vector3(),
+    quaternion: new Quaternion(),
+    object: new Object3D(),
+  },
   onNextFrameCallbacks: new Set(),
 };
 
+/**
+ * Custom hook that creates and manages the state for Newton XR.
+ * @param initialState - The initial state for Newton XR.
+ * @returns The state and actions for Newton XR.
+ */
 export const useNewton = create(
   combine(initialState, (set, get) => ({
     onFrame: (state: RootState, delta: number, frame: XRFrame | undefined) => {
@@ -92,11 +127,7 @@ export const useNewton = create(
 
       if (referenceSpace === null) return;
 
-      // set Controllers state
       const inputSources = frame?.session.inputSources;
-      // const inputSources = frame?.session.inputSources.values();
-
-      // const stateControllers: XRController[] = [];
 
       for (const inputSource of inputSources ?? []) {
         const {
@@ -224,6 +255,218 @@ export const useNewton = create(
         heldObjects: {
           ...state.heldObjects,
           [handedness]: object,
+        },
+      }));
+    },
+    /**
+     * Updates the hand bones based on the motion data.
+     *
+     * @param motionHand - The motion hand data.
+     * @param handedness - The handedness of the hand.
+     * @param frame - The XRFrame containing the motion data.
+     * @param referenceSpace - The XRReferenceSpace used as the frame of reference.
+     * @param updateRapier - A boolean indicating whether to update the Rapier physics engine.
+     */
+    updateHandBones: (
+      motionHand: MotionHand,
+      handedness: XRHandedness,
+      frame: XRFrame,
+      referenceSpace: XRReferenceSpace,
+      updateRapier: boolean,
+    ): void => {
+      if (handedness === "none") return;
+
+      const boneInfo: BoneInfo[] = [];
+
+      const newtonBones = get().hands[handedness]?.bones;
+
+      console.log("newtonBones", newtonBones);
+
+      for (const inputJointSpace of motionHand.hand.values()) {
+        const startJointInfo = jointMap.get(
+          HandJoints[inputJointSpace.jointName],
+        );
+
+        if (!startJointInfo) continue;
+
+        const startJointPose = frame.getJointPose?.(
+          inputJointSpace,
+          referenceSpace,
+        );
+
+        if (!startJointPose) continue;
+
+        startJointInfo.properties.position.set(
+          startJointPose.transform.position.x,
+          startJointPose.transform.position.y,
+          startJointPose.transform.position.z,
+        );
+
+        startJointInfo.properties.orientation.set(
+          startJointPose.transform.orientation.x,
+          startJointPose.transform.orientation.y,
+          startJointPose.transform.orientation.z,
+          startJointPose.transform.orientation.w,
+        );
+
+        const connectedJoints =
+          jointConnections[HandJoints[inputJointSpace.jointName]];
+
+        if (!connectedJoints) continue;
+
+        connectedJoints.forEach((endJointName) => {
+          const endJointInfo = jointMap.get(HandJoints[endJointName]);
+
+          if (!endJointInfo) return;
+
+          // Quick fix, but works
+          const endJointSpace = motionHand.hand.get(
+            endJointName as unknown as number,
+          );
+
+          if (!endJointSpace) return;
+
+          /**
+           * Find the corresponding endJoint by looking through
+           * motionHand.hand.values() and comparing the endJointName
+           */
+          const endJointPose = frame.getJointPose?.(
+            endJointSpace,
+            referenceSpace,
+          );
+
+          if (endJointPose) {
+            endJointInfo.properties.position.set(
+              endJointPose.transform.position.x,
+              endJointPose.transform.position.y,
+              endJointPose.transform.position.z,
+            );
+
+            endJointInfo.properties.orientation.set(
+              endJointPose.transform.orientation.x,
+              endJointPose.transform.orientation.y,
+              endJointPose.transform.orientation.z,
+              endJointPose.transform.orientation.w,
+            );
+
+            const height = startJointInfo.properties.position.distanceTo(
+              endJointInfo.properties.position,
+            );
+
+            const newtonBones = get().hands[handedness]?.bones;
+
+            if (newtonBones?.length === 0) {
+              console.log("no bones in store yet");
+            }
+
+            let storedBone = get().hands[handedness]?.bones.find((bone) => {
+              return (
+                bone.startJoint.name === startJointInfo.name &&
+                bone.endJoint.name === endJointInfo.name
+              );
+            });
+
+            if (!storedBone) {
+              console.log(
+                "no stored bone for: ",
+                startJointInfo.name,
+                endJointInfo.name,
+              );
+              storedBone = {
+                startJoint: startJointInfo,
+                endJoint: endJointInfo,
+                bone: {
+                  position: new Vector3(),
+                  orientation: new Quaternion(),
+                },
+                boneRef: createRef<RapierRigidBody>(),
+                height: height,
+              };
+              // console.log(
+              //   "no stored bone for: ",
+              //   startJointInfo.name,
+              //   endJointInfo.name,
+              // );
+
+              // set((state) => ({
+              //   ...state,
+              //   hands: {
+              //     ...state.hands,
+              //     [handedness]: {
+              //       ...state.hands[handedness],
+              //       bones: [
+              //         ...(state.hands[handedness]?.bones ?? []),
+              //         {
+              //           startJoint: startJointInfo,
+              //           endJoint: endJointInfo,
+              //           bone: {
+              //             position: new Vector3(),
+              //             orientation: new Quaternion(),
+              //           },
+              //           boneRef: createRef<RapierRigidBody>(),
+              //           height: height,
+              //         },
+              //       ],
+              //     },
+              //   },
+              // }));
+
+              // return;
+            }
+
+            const { vector, position, direction, quaternion, object } =
+              get().reservedThreeValues;
+
+            const ref = storedBone.boneRef;
+
+            const startPos = startJointInfo.properties.position;
+
+            const endPos = endJointInfo.properties.position;
+
+            // copying bone position to reserved position Vector3
+            position.copy(startPos).lerpVectors(startPos, endPos, 0.5);
+
+            // copying bone direction to reserved direction Vector3
+            direction.copy(startPos).sub(endPos).normalize();
+
+            // copying bone position to reserved threejs object
+            object.position.copy(position);
+
+            // creating target position from the bone direction and position vectors
+            vector.copy(position).add(direction);
+
+            // setting the bone orientation to look at the target position
+            object.lookAt(vector);
+
+            quaternion.setFromUnitVectors(vector.set(0, 1, 0), direction);
+
+            if (ref.current && updateRapier) {
+              ref.current.setNextKinematicTranslation(position);
+              ref.current.setNextKinematicRotation(quaternion);
+            }
+
+            boneInfo.push({
+              startJoint: startJointInfo,
+              endJoint: endJointInfo,
+              bone: {
+                position,
+                orientation: object.quaternion,
+              },
+              boneRef: ref,
+              height: storedBone.height ?? height,
+            });
+          }
+        });
+      }
+
+      set((state) => ({
+        ...state,
+        hands: {
+          ...state.hands,
+          [handedness]: {
+            ...state.hands[handedness],
+            bones: boneInfo,
+          },
         },
       }));
     },
