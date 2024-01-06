@@ -15,7 +15,7 @@
     "@coconut-xr/natuerlich": "^0.0.48",
     "@react-three/fiber": "^8.15.11",
     "@react-three/rapier": "^1.1.1",
-    "@vixuslabs/newtonxr": "0.1.0",
+    "@vixuslabs/newtonxr": "0.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "three": "^0.158.0",
