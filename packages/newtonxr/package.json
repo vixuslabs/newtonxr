@@ -22,8 +22,7 @@
     "./tsconfig.json": "./tsconfig.json",
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.js"
     }
   },
   "typesVersions": {
