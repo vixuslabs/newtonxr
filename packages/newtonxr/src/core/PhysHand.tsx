@@ -16,7 +16,7 @@ import type { RapierRigidBody } from "@react-three/rapier";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
-import { HandBone, useNewton } from "../core/index.js";
+import { HandBone, HandSensor, useNewton } from "../core/index.js";
 import { SpatialHand } from "../SpatialHand.js";
 
 interface JointProperties {
@@ -31,6 +31,7 @@ export interface JointInfo {
   name: XRHandJoint;
   properties: JointProperties;
   readonly isTipJoint: boolean;
+  handedness?: "left" | "right";
 }
 
 export interface RapierBone {
@@ -65,7 +66,7 @@ export interface JointRefs {
  * @param hand - The XRHand object representing the physical hand.
  * @param inputSource - The XRInputSource object representing the input source of the hand.
  * @param id - The unique identifier for the XRHand.
- * @param withDigitalHand - Optional. Specifies whether to render a digital hand along with the physical hand. Default is false.
+ * @param withDigitalHand - **Optional**. Specifies whether to render a digital hand along with the physical hand. Default is false.
  * @returns The PhysHand component.
  */
 export const PhysHand = forwardRef<
@@ -146,6 +147,10 @@ export const PhysHand = forwardRef<
               </Fragment>
             );
           },
+        )}
+
+        {hands[inputSource.handedness] && (
+          <HandSensor handedness={inputSource.handedness} />
         )}
 
         {withDigitalHand && (
