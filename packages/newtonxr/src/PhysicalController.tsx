@@ -1,13 +1,6 @@
 "use client";
 
-import React, {
-  Suspense,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  // useEffect,
-} from "react";
+import React, { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { RayBasicMaterial } from "@coconut-xr/natuerlich/defaults";
 import {
   DynamicControllerModel,
@@ -78,11 +71,7 @@ export function PhysicalController({
     pointerRef.current?.press(0, e);
   }, []);
 
-  const handleIntersection = (
-    intersection: readonly XLinesIntersection[],
-    // handedness: "left" | "right"
-  ) => {
-    // console.log("intersection", intersection);
+  const handleIntersection = (intersection: readonly XLinesIntersection[]) => {
     if (
       intersection.length === 0 ||
       (intersection[0] && !intersection[0].capturedObject)
