@@ -3,15 +3,11 @@ import type { MotionHand } from "@coconut-xr/natuerlich";
 import type { RootState } from "@react-three/fiber";
 import type { RapierRigidBody } from "@react-three/rapier";
 import { Object3D, Quaternion, Vector3 } from "three";
-import { create } from "zustand";
-import type { StoreApi } from "zustand";
+import { create, type StoreApi } from "zustand";
 import { combine } from "zustand/middleware";
 
-import {
-  HandJoints,
-  jointConnections,
-  defaultHandJointValues as jointMap,
-} from "../constants.js";
+import { HandJoints, jointConnections } from "../constants.js";
+import type { PalmJointNames, PalmProperties } from "./HandSensor.js";
 import type { BoneInfo, JointInfo } from "./PhysHand.js";
 
 export interface GamepadAxes {
@@ -31,18 +27,12 @@ export interface XRController {
   pointer?: number;
 }
 
-// export type PointerState = {
-//   z: number;
-//   handedness: "left" | "right";
-//   heldObject: string | null;
-// }
-
 export interface InteractionPoint {
   zPosition: number;
   heldObjectId: string | null;
 }
 
-type HandBoneNames =
+export type HandBoneNames =
   | "wrist--thumb-metacarpal"
   | "thumb-metacarpal--thumb-phalanx-proximal"
   | "thumb-phalanx-proximal--thumb-phalanx-distal"
@@ -68,11 +58,14 @@ type HandBoneNames =
   | "pinky-finger-phalanx-intermediate--pinky-finger-phalanx-distal"
   | "pinky-finger-phalanx-distal--pinky-finger-tip";
 
-type HandBoneMap = Map<HandBoneNames, BoneInfo>;
+export type HandBoneMap = Map<HandBoneNames, BoneInfo>;
 
-interface HandProperties {
-  joints: JointInfo[];
+export type HandJointMap = Map<XRHandJoint, JointInfo>;
+
+export interface HandProperties {
+  joints: HandJointMap;
   bones: HandBoneMap;
+  palm: PalmProperties;
 }
 
 export type NewtonState = {
@@ -106,6 +99,21 @@ export type NewtonState = {
   >;
   threeStore?: StoreApi<RootState>;
 };
+
+const palmJointNamesArr = [
+  "wrist",
+  "thumb-phalanx-proximal",
+  "index-finger-phalanx-proximal",
+  "pinky-finger-phalanx-proximal",
+];
+
+function isPalmJointName(name: XRHandJoint): name is PalmJointNames {
+  return palmJointNamesArr.includes(name);
+}
+
+function isTipJointName(name: XRHandJoint): boolean {
+  return name.includes("tip");
+}
 
 const initialState: NewtonState = {
   controllers: {
@@ -289,11 +297,13 @@ export const useNewton = create(
     /**
      * Updates the hand bones based on the motion data.
      *
+     * @todo - This entire function can be moved inside of the `onFrame` method.
      * @param motionHand - The motion hand data.
      * @param handedness - The handedness of the hand.
      * @param frame - The XRFrame containing the motion data.
      * @param referenceSpace - The XRReferenceSpace used as the frame of reference.
      * @param updateRapier - A boolean indicating whether to update the Rapier physics engine.
+     * @param usingSensor - **Optional**. A boolean indicating whether the hand sensor is being used, defaults to true.
      */
     updateHandBones: (
       motionHand: MotionHand,
@@ -301,24 +311,37 @@ export const useNewton = create(
       frame: XRFrame,
       referenceSpace: XRReferenceSpace,
       updateRapier: boolean,
+      usingSensor = true,
     ): void => {
       if (handedness === "none") return;
 
       let newtonBones = get().hands[handedness]?.bones;
+      let newtonPalm = get().hands[handedness]?.palm;
+      let newtonJoints = get().hands[handedness]?.joints;
 
-      if (!newtonBones) {
-        set((state) => ({
-          ...state,
-          hands: {
-            ...state.hands,
-            [handedness]: {
-              ...state.hands[handedness],
-              bones: new Map<HandBoneNames, BoneInfo>(),
-            },
-          },
-        }));
-        newtonBones =
-          get().hands[handedness]?.bones ?? new Map<HandBoneNames, BoneInfo>();
+      if (!newtonJoints) {
+        newtonJoints = new Map<XRHandJoint, JointInfo>();
+      }
+
+      if (!newtonBones && !newtonPalm) {
+        newtonBones = new Map<HandBoneNames, BoneInfo>();
+        newtonPalm = {
+          joints: new Map<PalmJointNames, JointInfo>(),
+          position: new Vector3(),
+          orientation: new Quaternion(),
+          direction: new Vector3(),
+          handedness: handedness,
+        };
+      } else if (!newtonBones) {
+        newtonBones = new Map<HandBoneNames, BoneInfo>();
+      } else if (!newtonPalm) {
+        newtonPalm = {
+          joints: new Map<PalmJointNames, JointInfo>(),
+          position: new Vector3(),
+          orientation: new Quaternion(),
+          direction: new Vector3(),
+          handedness: handedness,
+        };
       }
 
       if (!newtonBones) {
@@ -326,10 +349,30 @@ export const useNewton = create(
         return;
       }
 
+      if (!newtonPalm) {
+        console.log("no palm");
+        return;
+      }
+
+      if (!newtonJoints) {
+        console.log("no joints");
+        return;
+      }
+
       for (const inputJointSpace of motionHand.hand.values()) {
-        const startJointInfo = jointMap.get(
-          HandJoints[inputJointSpace.jointName],
-        );
+        let startJointInfo = newtonJoints.get(inputJointSpace.jointName);
+
+        if (!startJointInfo) {
+          newtonJoints.set(inputJointSpace.jointName, {
+            name: inputJointSpace.jointName,
+            properties: {
+              position: new Vector3(),
+              orientation: new Quaternion(),
+            },
+            isTipJoint: isTipJointName(inputJointSpace.jointName),
+          });
+          startJointInfo = newtonJoints.get(inputJointSpace.jointName);
+        }
 
         if (!startJointInfo) continue;
 
@@ -339,6 +382,12 @@ export const useNewton = create(
         );
 
         if (!startJointPose) continue;
+
+        const storedJoint = newtonJoints.get(inputJointSpace.jointName);
+
+        if (!storedJoint) {
+          newtonJoints.set(inputJointSpace.jointName, startJointInfo);
+        }
 
         startJointInfo.properties.position.set(
           startJointPose.transform.position.x,
@@ -353,13 +402,32 @@ export const useNewton = create(
           startJointPose.transform.orientation.w,
         );
 
+        /**
+         * If the hand sensor is being used and the current
+         * inputJointSpace is classified as a PalmJoint, we
+         * will update the palm joint
+         */
+        if (usingSensor && isPalmJointName(inputJointSpace.jointName)) {
+          const palmJoint = newtonPalm.joints.get(inputJointSpace.jointName);
+
+          if (!palmJoint) {
+            newtonPalm.joints.set(inputJointSpace.jointName, startJointInfo);
+          }
+        }
+
         const connectedJoints =
           jointConnections[HandJoints[inputJointSpace.jointName]];
 
         if (!connectedJoints) continue;
 
         connectedJoints.forEach((endJointName) => {
-          const endJointInfo = jointMap.get(HandJoints[endJointName]);
+          if (!startJointInfo) {
+            console.log(
+              "startJointInfo is null inside connectedJoints.forEach",
+            );
+            return;
+          }
+          const endJointInfo = newtonJoints?.get(endJointName);
 
           if (!endJointInfo) return;
 
@@ -429,6 +497,7 @@ export const useNewton = create(
                 `${startJointInfo.name}--${endJointInfo.name}` as HandBoneNames,
                 storedBone,
               );
+
               storedBone = newtonBones.get(
                 `${startJointInfo.name}--${endJointInfo.name}` as HandBoneNames,
               );
@@ -494,6 +563,8 @@ export const useNewton = create(
           [handedness]: {
             ...state.hands[handedness],
             bones: newtonBones,
+            palm: newtonPalm,
+            joints: newtonJoints,
           },
         },
       }));

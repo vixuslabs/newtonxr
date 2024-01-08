@@ -19,6 +19,7 @@ interface PhysicalBallProps {
   children?: React.ReactNode;
   position?: [number, number, number];
   ballRadius?: number;
+  color?: THREE.Color | string;
   mass?: number;
   name?: string;
   gravityScale?: number;
@@ -52,6 +53,7 @@ export const PhysicalBall = forwardRef<
       ballRadius = 0.1,
       name = "ball",
       gravityScale = 1,
+      color = "hotpink",
       GrabbableComponent = Grabbable,
       handleGrab,
       handleRelease,
@@ -122,7 +124,7 @@ export const PhysicalBall = forwardRef<
               ) : (
                 <>
                   <sphereGeometry args={[ballRadius, 32, 32]} />
-                  <meshBasicMaterial color="hotpink" />
+                  <meshBasicMaterial color={color} />
                 </>
               )}
             </GrabbableComponent>

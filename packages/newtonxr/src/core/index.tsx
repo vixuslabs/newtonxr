@@ -4,3 +4,4 @@ export * from "./XRConfig.js";
 export * from "./XRPhysics.js";
 export * from "./PhysHand.js";
 export * from "./HandBone.js";
+export * from "./HandSensor.js";

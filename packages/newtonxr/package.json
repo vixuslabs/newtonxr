@@ -1,6 +1,6 @@
 {
   "name": "@vixuslabs/newtonxr",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "license": "MIT",
   "type": "module",
   "description": "a webxr library for effortlessly infusing realistic physics into your projects",
@@ -22,8 +22,7 @@
     "./tsconfig.json": "./tsconfig.json",
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.js"
     }
   },
   "typesVersions": {
