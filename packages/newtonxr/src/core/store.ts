@@ -62,7 +62,7 @@ export type HandBoneMap = Map<HandBoneNames, BoneInfo>;
 
 export type HandJointMap = Map<XRHandJoint, JointInfo>;
 
-interface HandProperties {
+export interface HandProperties {
   joints: HandJointMap;
   bones: HandBoneMap;
   palm: PalmProperties;
@@ -413,14 +413,6 @@ export const useNewton = create(
           if (!palmJoint) {
             newtonPalm.joints.set(inputJointSpace.jointName, startJointInfo);
           }
-
-          palmJoint?.properties.position.copy(
-            startJointInfo.properties.position,
-          );
-
-          palmJoint?.properties.orientation.copy(
-            startJointInfo.properties.orientation,
-          );
         }
 
         const connectedJoints =
