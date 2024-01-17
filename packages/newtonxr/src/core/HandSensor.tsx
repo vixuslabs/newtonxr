@@ -85,6 +85,17 @@ export function calculateSensorProperties(
   }
 }
 
+/**
+ * HandSensor component represents a sensor attached to a hand in a virtual reality scene.
+ * It calculates the properties of the sensor based on the position of the hand's palm.
+ *
+ * @component
+ * @param handedness - The handedness of the hand (e.g., "left" or "right").
+ * @param type - The type of sensor collider's shape ("cylinder" or "cone").
+ * @param children - The child components to render inside the HandSensor.
+ * @param ref - The ref object for the HandSensor component. *Ineffective use of passed ref object for now.*
+ * @returns The rendered HandSensor component.
+ */
 export const HandSensor = forwardRef<RapierCollider, HandSensorProps>(
   ({ handedness, type = "cylinder", children }, ref) => {
     const sensorRef = useRef<RapierCollider>(null);
