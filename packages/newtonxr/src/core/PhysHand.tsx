@@ -11,12 +11,12 @@ import {
   getMotionHandModelUrl,
   type MotionHand,
 } from "@coconut-xr/natuerlich";
-import { useFrame, useLoader } from "@react-three/fiber";
+import { useLoader } from "@react-three/fiber";
 import type { RapierRigidBody } from "@react-three/rapier";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
-import { HandBone, HandSensor, useNewton } from "../core/index.js";
+import { HandBone, HandSensor } from "../core/index.js";
 import { useHands } from "../hooks/useHands.js";
 import { SpatialHand } from "../SpatialHand.js";
 
@@ -79,7 +79,6 @@ export const PhysHand = forwardRef<
     withDigitalHand?: boolean;
   }
 >(({ hand, inputSource, id, withDigitalHand = false }, ref) => {
-  const updateHandBones = useNewton((state) => state.updateHandBones);
   const [inputHand] = useHands(inputSource.handedness);
 
   const handUrl = getMotionHandModelUrl(inputSource.handedness);
@@ -95,34 +94,6 @@ export const PhysHand = forwardRef<
 
   const motionHandRef = useRef<MotionHand>(motionHandObject);
 
-  useFrame((state, _, frame) => {
-    const motionHand = motionHandRef.current;
-
-    if (
-      frame == null ||
-      frame.session.visibilityState === "hidden" ||
-      frame.session.visibilityState === "visible-blurred"
-    ) {
-      motionHand.visible = false;
-      return;
-    }
-    const referenceSpace = state.gl.xr.getReferenceSpace();
-    if (referenceSpace === null) {
-      motionHand.visible = false;
-      return;
-    }
-
-    if (motionHand.visible) {
-      updateHandBones(
-        motionHand,
-        inputSource.handedness,
-        frame,
-        referenceSpace,
-        true,
-      );
-    }
-  });
-
   if (inputSource.handedness === "none") return null;
 
   if (!inputHand) return null;
@@ -135,7 +106,12 @@ export const PhysHand = forwardRef<
           ([name, { height, boneRef }]) => {
             return (
               <Fragment key={name}>
-                <HandBone ref={boneRef} height={height}>
+                <HandBone
+                  rigidBodyType="kinematicPosition"
+                  visible={true}
+                  ref={boneRef}
+                  height={height}
+                >
                   <mesh>
                     <boxGeometry args={[0.005, height, 0.004]} />
                     <meshBasicMaterial

@@ -32,6 +32,28 @@ export interface InteractionPoint {
   heldObjectId: string | null;
 }
 
+type ActualHandBoneNames =
+  | "wrist"
+  | "thumb-metacarpal"
+  | "thumb-phalanx-proximal"
+  | "thumb-phalanx-distal"
+  | "index-finger-metacarpal"
+  | "index-finger-phalanx-proximal"
+  | "index-finger-phalanx-intermediate"
+  | "index-finger-phalanx-distal"
+  | "middle-finger-metacarpal"
+  | "middle-finger-phalanx-proximal"
+  | "middle-finger-phalanx-intermediate"
+  | "middle-finger-phalanx-distal"
+  | "ring-finger-metacarpal"
+  | "ring-finger-phalanx-proximal"
+  | "ring-finger-phalanx-intermediate"
+  | "ring-finger-phalanx-distal"
+  | "pinky-finger-metacarpal"
+  | "pinky-finger-phalanx-proximal"
+  | "pinky-finger-phalanx-intermediate"
+  | "pinky-finger-phalanx-distal";
+
 export type HandBoneNames =
   | "wrist--thumb-metacarpal"
   | "thumb-metacarpal--thumb-phalanx-proximal"
@@ -57,6 +79,10 @@ export type HandBoneNames =
   | "pinky-finger-phalanx-proximal--pinky-finger-phalanx-intermediate"
   | "pinky-finger-phalanx-intermediate--pinky-finger-phalanx-distal"
   | "pinky-finger-phalanx-distal--pinky-finger-tip";
+
+export type HandBoneMapping = {
+  [Key in HandBoneNames]: ActualHandBoneNames;
+};
 
 export type HandBoneMap = Map<HandBoneNames, BoneInfo>;
 
@@ -115,7 +141,19 @@ function isTipJointName(name: XRHandJoint): boolean {
   return name.includes("tip");
 }
 
-const initialState: NewtonState = {
+interface NewtonStateMethods {
+  updateHandBones: (
+    // motionHand: MotionHand,
+    hand: XRHand,
+    handedness: XRHandedness,
+    frame: XRFrame,
+    referenceSpace: XRReferenceSpace,
+    updateRapier: boolean,
+    usingSensor?: boolean,
+  ) => void;
+}
+
+const initialState: NewtonState & NewtonStateMethods = {
   controllers: {
     left: null,
     right: null,
@@ -141,6 +179,9 @@ const initialState: NewtonState = {
     object: new Object3D(),
   },
   onNextFrameCallbacks: new Set(),
+  updateHandBones: () => {
+    return null;
+  },
 };
 
 /**
@@ -151,7 +192,7 @@ const initialState: NewtonState = {
 export const useNewton = create(
   combine(initialState, (set, get) => ({
     onFrame: (state: RootState, delta: number, frame: XRFrame | undefined) => {
-      const { onNextFrameCallbacks, controllers } = get();
+      const { onNextFrameCallbacks, controllers, updateHandBones } = get();
 
       for (const onNextFrameCallback of onNextFrameCallbacks) {
         onNextFrameCallback(state, delta, frame);
@@ -172,23 +213,29 @@ export const useNewton = create(
           gamepad,
           targetRayMode,
           targetRaySpace,
+          hand,
         } = inputSource;
 
         if (
           !handedness ||
           handedness === "none" ||
           !gripSpace ||
-          !gamepad ||
           targetRayMode !== "tracked-pointer" ||
-          !targetRaySpace
+          !targetRaySpace ||
+          !frame
         )
           continue;
 
-        // const baseLayer = state.get().gl.xr.getBaseLayer();
-
-        const pose = frame?.getPose(gripSpace, referenceSpace);
+        const pose = frame.getPose(gripSpace, referenceSpace);
 
         if (!pose) continue;
+
+        if (hand) {
+          updateHandBones(hand, handedness, frame, referenceSpace, true);
+          continue;
+        }
+
+        if (!gamepad) continue;
 
         /**
          * [Reference](https://immersive-web.github.io/webxr-gamepads-module/#example-mappings) -
@@ -295,18 +342,18 @@ export const useNewton = create(
       }));
     },
     /**
-     * Updates the hand bones based on the motion data.
+     * Updates the hand bones with data from the XRHand provided by the [WebXR Device API](https://developer.mozilla.org/en-US/docs/Web/API/WebXR_Device_API).
      *
-     * @todo - This entire function can be moved inside of the `onFrame` method.
-     * @param motionHand - The motion hand data.
+     * @param hand - The XRHand data.
      * @param handedness - The handedness of the hand.
-     * @param frame - The XRFrame containing the motion data.
+     * @param frame - Represents a snapshot of the state of all of the tracked objects for an XRSession, more [here](https://immersive-web.github.io/webxr/#xrframe-interface).
      * @param referenceSpace - The XRReferenceSpace used as the frame of reference.
      * @param updateRapier - A boolean indicating whether to update the Rapier physics engine.
      * @param usingSensor - **Optional**. A boolean indicating whether the hand sensor is being used, defaults to true.
+     * @link https://github.com/vixuslabs/newtonxr/blob/main/packages/newtonxr/src/core/store.ts
      */
     updateHandBones: (
-      motionHand: MotionHand,
+      hand: XRHand,
       handedness: XRHandedness,
       frame: XRFrame,
       referenceSpace: XRReferenceSpace,
@@ -359,7 +406,7 @@ export const useNewton = create(
         return;
       }
 
-      for (const inputJointSpace of motionHand.hand.values()) {
+      for (const inputJointSpace of hand.values()) {
         let startJointInfo = newtonJoints.get(inputJointSpace.jointName);
 
         if (!startJointInfo) {
@@ -437,9 +484,7 @@ export const useNewton = create(
           }
 
           // Quick fix, but works
-          const endJointSpace = motionHand.hand.get(
-            endJointName as unknown as number,
-          );
+          const endJointSpace = hand.get(endJointName as unknown as number);
 
           if (!endJointSpace) return;
 
@@ -531,6 +576,7 @@ export const useNewton = create(
             );
 
             if (ref.current && updateRapier) {
+              console.log("updating rapier handbone");
               ref.current.setNextKinematicTranslation(position);
               ref.current.setNextKinematicRotation(quaternion);
             }
