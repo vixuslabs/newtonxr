@@ -16,7 +16,11 @@ import type { RapierRigidBody } from "@react-three/rapier";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
-import { HandBone, HandSensor } from "../core/index.js";
+import {
+  ConnectiveHandBoneJoint,
+  HandBone,
+  type HandBoneNames,
+} from "../core/index.js";
 import { useHands } from "../hooks/useHands.js";
 import { SpatialHand } from "../SpatialHand.js";
 
@@ -44,7 +48,8 @@ export interface BoneInfo {
   startJoint: JointInfo;
   endJoint: JointInfo;
   bone: RapierBone;
-  boneRef: RefObject<RapierRigidBody>;
+  visibleBoneRef: RefObject<RapierRigidBody>;
+  bridgeBoneRef: RefObject<RapierRigidBody>;
   position?: THREE.Vector3;
   orientation?: THREE.Quaternion;
   readonly height?: number;
@@ -58,6 +63,22 @@ export interface JointRefs {
   physicsRef: MutableRefObject<RapierRigidBody>;
   meshRef: MutableRefObject<THREE.Mesh>;
 }
+
+const findCommonJoint = (
+  boneName1: HandBoneNames,
+  boneName2: HandBoneNames,
+): XRHandJoint | null => {
+  const startNameWords = boneName1.split("--");
+  const endNameWords = boneName2.split("--");
+
+  for (const word of startNameWords) {
+    if (word === endNameWords[0] || word === endNameWords[1]) {
+      return word as XRHandJoint;
+    }
+  }
+
+  return null;
+};
 
 /**
  * PhysHand component represents a physical hand in a XR scene.
@@ -80,6 +101,7 @@ export const PhysHand = forwardRef<
   }
 >(({ hand, inputSource, id, withDigitalHand = false }, ref) => {
   const [inputHand] = useHands(inputSource.handedness);
+  inputHand?.joints;
 
   const handUrl = getMotionHandModelUrl(inputSource.handedness);
 
@@ -102,14 +124,116 @@ export const PhysHand = forwardRef<
     <>
       <group name={`${inputSource.handedness}-hand`} ref={ref}>
         {/* Joints */}
-        {Array.from(inputHand.bones.entries() ?? []).map(
-          ([name, { height, boneRef }]) => {
+        {Array.from(inputHand.bones.entries() ?? []).map((cur, i, arr) => {
+          if (i % 2 === 1) return null;
+          if (i === arr.length - 1) return null;
+
+          const next = arr[i + 1];
+
+          if (!next) return null;
+
+          const [
+            startName,
+            { height: startHeight, visibleBoneRef: startVisibleBoneRef },
+          ] = cur;
+
+          const [
+            endName,
+            { height: endHeight, visibleBoneRef: endVisibleBoneRef },
+          ] = next;
+
+          const commonJoint = findCommonJoint(startName, endName);
+
+          console.log("commonJoint", commonJoint);
+
+          if (!commonJoint) return null;
+
+          return (
+            <Fragment key={`${startName}-${endName}`}>
+              <ConnectiveHandBoneJoint
+                boneOneRef={startVisibleBoneRef}
+                boneTwoRef={endVisibleBoneRef}
+                connectingJointName={commonJoint}
+              >
+                <HandBone
+                  name={startName}
+                  rigidBodyType="dynamic"
+                  visible={true}
+                  handedness={inputSource.handedness as "right" | "left"}
+                  ref={startVisibleBoneRef}
+                  height={startHeight}
+                >
+                  <mesh>
+                    <boxGeometry args={[0.005, startHeight, 0.004]} />
+                    <meshBasicMaterial color={"white"} />
+                  </mesh>
+                </HandBone>
+                <HandBone
+                  name={endName}
+                  rigidBodyType="dynamic"
+                  visible={true}
+                  handedness={inputSource.handedness as "right" | "left"}
+                  ref={endVisibleBoneRef}
+                  height={endHeight}
+                >
+                  <mesh>
+                    <boxGeometry args={[0.005, endHeight, 0.004]} />
+                    <meshBasicMaterial color={"white"} />
+                  </mesh>
+                </HandBone>
+              </ConnectiveHandBoneJoint>
+            </Fragment>
+          );
+        })}
+
+        {/* {inputHand && <HandSensor handedness={inputSource.handedness} />} */}
+
+        {withDigitalHand && (
+          <SpatialHand hand={hand} inputSource={inputSource} id={id} />
+        )}
+      </group>
+    </>
+  );
+});
+
+PhysHand.displayName = "PhysHand";
+
+{
+  /* //   return (
+        //     <Fragment key={name}>
+        //       <HandBone
+        //         name={name}
+        //         rigidBodyType="dynamic"
+        //         visible={true}
+        //         handedness={inputSource.handedness as "right" | "left"}
+        //         ref={visibleBoneRef}
+        //         height={height}
+        //       >
+        //         <mesh>
+        //           <boxGeometry args={[0.005, height, 0.004]} />
+        //           <meshBasicMaterial
+        //             color={"white"}
+        //             transparent={!motionHandRef.current.visible}
+        //             opacity={motionHandRef.current.visible ? 1 : 0}
+        //           />
+        //         </mesh>
+        //       </HandBone>
+        //     </Fragment>
+        //   );
+        // })} */
+}
+
+{
+  /* {Array.from(inputHand.bones.entries() ?? []).map(
+          ([name, { height, visibleBoneRef }]) => {
             return (
               <Fragment key={name}>
                 <HandBone
-                  rigidBodyType="kinematicPosition"
+                  name={name}
+                  rigidBodyType="dynamic"
                   visible={true}
-                  ref={boneRef}
+                  handedness={inputSource.handedness as "right" | "left"}
+                  ref={visibleBoneRef}
                   height={height}
                 >
                   <mesh>
@@ -124,16 +248,5 @@ export const PhysHand = forwardRef<
               </Fragment>
             );
           },
-        )}
-
-        {inputHand && <HandSensor handedness={inputSource.handedness} />}
-
-        {withDigitalHand && (
-          <SpatialHand hand={hand} inputSource={inputSource} id={id} />
-        )}
-      </group>
-    </>
-  );
-});
-
-PhysHand.displayName = "PhysHand";
+        )} */
+}
