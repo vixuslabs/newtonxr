@@ -7,7 +7,14 @@ import type {
   RigidBodyAutoCollider,
 } from "@react-three/rapier";
 
+import useBridgeBone from "../hooks/useBridgeBone.js";
+import type { HandBoneNames } from "./index.js";
+
 export interface BoneProps {
+  name: HandBoneNames;
+  visible: boolean;
+  rigidBodyType?: "dynamic" | "kinematicPosition" | "kinematicVelocity";
+  handedness: "left" | "right";
   height?: number;
   collider?: RigidBodyAutoCollider;
   children?: React.ReactNode;
@@ -15,6 +22,7 @@ export interface BoneProps {
 
 /**
  * Represents a bone within your hand in a physics simulation.
+ * @param visible Whether the bone is visible.
  * @param height The height of the bone.
  * @param collider The collider to attach to the bone.
  * @param children The child components of the bone.
@@ -22,34 +30,54 @@ export interface BoneProps {
  * @returns The Bone component.
  */
 export const HandBone = forwardRef<RapierRigidBody, BoneProps>(
-  ({ height, collider, children }, ref) => {
-    // const boneRef = useRef<RapierRigidBody>(null);
-    // useImperativeHandle(ref, () => boneRef.current!);
+  (
+    {
+      name,
+      visible,
+      rigidBodyType = "dynamic",
+      handedness,
+      height,
+      collider = "cuboid",
+      children,
+    },
+    ref,
+  ) => {
+    const BridgeBone = useBridgeBone(
+      ref as React.RefObject<RapierRigidBody>,
+      handedness,
+      name,
+    );
 
     return (
-      <RigidBody
-        ref={ref}
-        type="kinematicPosition"
-        restitution={0.1}
-        colliders={collider ?? undefined}
-        collisionGroups={interactionGroups([0], [8])}
-        onCollisionEnter={(payload) => {
-          console.log("bone collision enter ", payload);
-        }}
-        onCollisionExit={(payload) => {
-          console.log("bone collision exit ", payload);
-        }}
-        ccd
-      >
-        {children ? (
-          children
-        ) : (
-          <mesh>
-            <cylinderGeometry args={[0.1, 0.1, height, 32]} />
-            <meshBasicMaterial wireframe color={"white"} />
-          </mesh>
-        )}
-      </RigidBody>
+      <>
+        <RigidBody
+          ref={ref}
+          type={rigidBodyType}
+          gravityScale={0}
+          restitution={0.1}
+          friction={0}
+          colliders={children ? collider : "cuboid"}
+          collisionGroups={interactionGroups([0], [6, 7, 8])}
+          onCollisionEnter={(_) => {
+            // console.log("bone collision enter ", payload);
+          }}
+          onCollisionExit={(_) => {
+            // console.log("bone collision exit ", payload);
+          }}
+          // ccd
+        >
+          {children ? (
+            children
+          ) : (
+            <mesh visible={visible}>
+              {/* <cylinderGeometry args={[0.1, 0.1, height ?? 0.05 / 2, 32]} /> */}
+              <boxGeometry args={[0.1, height, 0.1]} />
+              <meshBasicMaterial wireframe color={"white"} />
+            </mesh>
+          )}
+        </RigidBody>
+        {BridgeBone}
+      </>
     );
   },
 );
