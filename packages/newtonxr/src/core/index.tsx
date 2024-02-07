@@ -5,3 +5,7 @@ export * from "./XRPhysics.js";
 export * from "./PhysHand.js";
 export * from "./HandBone.js";
 export * from "./HandSensor.js";
+export * from "./ConnectiveFixedJoint.js";
+export * from "./ConnectiveSphericalJoint.js";
+export * from "./ConnectiveRevoluteJoint.js";
+export * from "./ConnectiveHandBoneJoint.js";

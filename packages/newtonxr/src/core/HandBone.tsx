@@ -8,17 +8,30 @@ import type {
 } from "@react-three/rapier";
 
 import useBridgeBone from "../hooks/useBridgeBone.js";
+import { useForwardedRef } from "../hooks/useForwardedRef.js";
+import type { BridgeHandBoneUserData } from "./BridgeHandBone.js";
 import type { HandBoneNames } from "./index.js";
 
 export interface BoneProps {
   name: HandBoneNames;
   visible: boolean;
-  rigidBodyType?: "dynamic" | "kinematicPosition" | "kinematicVelocity";
+  // args: Vector3Tuple;
+  args: [
+    width?: number,
+    height?: number,
+    depth?: number,
+    widthSegments?: number,
+    heightSegments?: number,
+    depthSegments?: number,
+  ];
   handedness: "left" | "right";
+  rigidBodyType?: "dynamic" | "kinematicPosition" | "kinematicVelocity";
   height?: number;
   collider?: RigidBodyAutoCollider;
   children?: React.ReactNode;
 }
+
+type HandBoneRef = React.RefObject<RapierRigidBody>;
 
 /**
  * Represents a bone within your hand in a physics simulation.
@@ -34,35 +47,58 @@ export const HandBone = forwardRef<RapierRigidBody, BoneProps>(
     {
       name,
       visible,
+      args,
       rigidBodyType = "dynamic",
       handedness,
       height,
       collider = "cuboid",
+      // visibleHandRef,
       children,
     },
     ref,
   ) => {
-    const BridgeBone = useBridgeBone(
-      ref as React.RefObject<RapierRigidBody>,
-      handedness,
-      name,
-    );
+    const boneRef = useForwardedRef(ref);
+
+    const BridgeBone = useBridgeBone(boneRef, handedness, name);
+
+    console.log("\n------HandBone----------");
 
     return (
       <>
         <RigidBody
-          ref={ref}
+          ref={boneRef}
           type={rigidBodyType}
           gravityScale={0}
-          restitution={0.1}
+          restitution={0}
           friction={0}
           colliders={children ? collider : "cuboid"}
           collisionGroups={interactionGroups([0], [6, 7, 8])}
-          onCollisionEnter={(_) => {
+          onCollisionEnter={({ other }) => {
             // console.log("bone collision enter ", payload);
+
+            if (
+              (other.rigidBody?.userData as BridgeHandBoneUserData).type ===
+              "bridge-hand-bone"
+            ) {
+              console.log("colliding with bridge-hand-bone");
+            }
+            if (boneRef) {
+              boneRef.current.lockRotations(true, true);
+            }
           }}
-          onCollisionExit={(_) => {
+          onCollisionExit={({ other }) => {
             // console.log("bone collision exit ", payload);
+
+            if (
+              (other.rigidBody?.userData as BridgeHandBoneUserData).type ===
+              "bridge-hand-bone"
+            ) {
+              console.log("colliding with bridge-hand-bone");
+            }
+
+            if (boneRef) {
+              boneRef.current.lockRotations(false, true);
+            }
           }}
           // ccd
         >
@@ -71,7 +107,8 @@ export const HandBone = forwardRef<RapierRigidBody, BoneProps>(
           ) : (
             <mesh visible={visible}>
               {/* <cylinderGeometry args={[0.1, 0.1, height ?? 0.05 / 2, 32]} /> */}
-              <boxGeometry args={[0.1, height, 0.1]} />
+              {/* <boxGeometry args={[0.1, height, 0.1]} /> */}
+              <boxGeometry args={args} />
               <meshBasicMaterial wireframe color={"white"} />
             </mesh>
           )}

@@ -1,6 +1,7 @@
 import React, {
   forwardRef,
   Fragment,
+  useImperativeHandle,
   useMemo,
   useRef,
   type MutableRefObject,
@@ -12,7 +13,12 @@ import {
   type MotionHand,
 } from "@coconut-xr/natuerlich";
 import { useLoader } from "@react-three/fiber";
-import type { RapierRigidBody } from "@react-three/rapier";
+import {
+  interactionGroups,
+  RigidBody,
+  useRapier,
+  type RapierRigidBody,
+} from "@react-three/rapier";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
@@ -21,7 +27,13 @@ import {
   HandBone,
   type HandBoneNames,
 } from "../core/index.js";
-import { useHands } from "../hooks/useHands.js";
+import {
+  BoneOrder,
+  JointOrder,
+  useBones,
+  useHands,
+  useOneHand,
+} from "../hooks/useHandHooks.js";
 import { SpatialHand } from "../SpatialHand.js";
 
 interface JointProperties {
@@ -45,6 +57,7 @@ export interface RapierBone {
 }
 
 export interface BoneInfo {
+  name: HandBoneNames;
   startJoint: JointInfo;
   endJoint: JointInfo;
   bone: RapierBone;
@@ -64,7 +77,14 @@ export interface JointRefs {
   meshRef: MutableRefObject<THREE.Mesh>;
 }
 
-const findCommonJoint = (
+interface BoneJointRefs {
+  boneOneRef: React.RefObject<RapierRigidBody>;
+  boneTwoRef: React.RefObject<RapierRigidBody>;
+}
+
+export type PhysHandRef = React.RefObject<RapierRigidBody>;
+
+export const findCommonJoint = (
   boneName1: HandBoneNames,
   boneName2: HandBoneNames,
 ): XRHandJoint | null => {
@@ -80,6 +100,10 @@ const findCommonJoint = (
   return null;
 };
 
+function isValidHandBoneName(name: string): name is HandBoneNames {
+  return name in BoneOrder;
+}
+
 /**
  * PhysHand component represents a physical hand in a XR scene.
  * It renders the hand bones and optionally a digital hand.
@@ -92,7 +116,7 @@ const findCommonJoint = (
  * @returns The PhysHand component.
  */
 export const PhysHand = forwardRef<
-  THREE.Group,
+  PhysHandRef,
   {
     hand: XRHand;
     inputSource: XRInputSource;
@@ -100,8 +124,30 @@ export const PhysHand = forwardRef<
     withDigitalHand?: boolean;
   }
 >(({ hand, inputSource, id, withDigitalHand = false }, ref) => {
-  const [inputHand] = useHands(inputSource.handedness);
-  inputHand?.joints;
+  const rapier = useRapier();
+  let count = 0;
+  console.log("\n--------PhysHand---------");
+  console.log("rapier: ", rapier);
+  rapier.world.forEachRigidBody((rigidBody) => {
+    count++;
+  });
+  console.log("count: ", count);
+  const [inputHand] = useOneHand(inputSource.handedness);
+  const orderedBones = useMemo(() => {
+    if (!inputHand) return [];
+    const inputHandsArr = Array.from(inputHand.bones.entries());
+
+    const orderedBones = inputHandsArr.sort((a, b) => {
+      // let aName = a[0];
+      // let c = BoneOrder[a[0]];
+
+      return BoneOrder[a[0]] - BoneOrder[b[0]];
+    });
+
+    return orderedBones;
+  }, [inputHand]);
+  // const bones = useBones(inputSource.handedness);
+  const physHandRef = useRef<RapierRigidBody>(null);
 
   const handUrl = getMotionHandModelUrl(inputSource.handedness);
 
@@ -116,21 +162,23 @@ export const PhysHand = forwardRef<
 
   const motionHandRef = useRef<MotionHand>(motionHandObject);
 
+  useImperativeHandle(ref, () => physHandRef);
+
   if (inputSource.handedness === "none") return null;
 
-  if (!inputHand) return null;
+  // if (!inputHand) return null;
 
   return (
     <>
-      <group name={`${inputSource.handedness}-hand`} ref={ref}>
-        {/* Joints */}
-        {Array.from(inputHand.bones.entries() ?? []).map((cur, i, arr) => {
-          if (i % 2 === 1) return null;
-          if (i === arr.length - 1) return null;
-
+      <group name={`${inputSource.handedness}-hand`}>
+        {orderedBones.map((cur, i, arr) => {
+          console.log("\n--------PhysHand---------");
+          // console.log("arr: ", arr);
           const next = arr[i + 1];
 
-          if (!next) return null;
+          // if (!next) return null;
+
+          if (cur === undefined || next === undefined) return null;
 
           const [
             startName,
@@ -144,13 +192,14 @@ export const PhysHand = forwardRef<
 
           const commonJoint = findCommonJoint(startName, endName);
 
-          console.log("commonJoint", commonJoint);
-
           if (!commonJoint) return null;
 
           return (
             <Fragment key={`${startName}-${endName}`}>
               <ConnectiveHandBoneJoint
+                // firstBoneName={startName}
+                // secondBoneName={endName}
+                // handedness={inputSource.handedness as "right" | "left"}
                 boneOneRef={startVisibleBoneRef}
                 boneTwoRef={endVisibleBoneRef}
                 connectingJointName={commonJoint}
@@ -162,12 +211,14 @@ export const PhysHand = forwardRef<
                   handedness={inputSource.handedness as "right" | "left"}
                   ref={startVisibleBoneRef}
                   height={startHeight}
+                  args={[0.005, startHeight, 0.004]}
                 >
                   <mesh>
                     <boxGeometry args={[0.005, startHeight, 0.004]} />
                     <meshBasicMaterial color={"white"} />
                   </mesh>
                 </HandBone>
+
                 <HandBone
                   name={endName}
                   rigidBodyType="dynamic"
@@ -175,6 +226,7 @@ export const PhysHand = forwardRef<
                   handedness={inputSource.handedness as "right" | "left"}
                   ref={endVisibleBoneRef}
                   height={endHeight}
+                  args={[0.005, startHeight, 0.004]}
                 >
                   <mesh>
                     <boxGeometry args={[0.005, endHeight, 0.004]} />
@@ -187,6 +239,7 @@ export const PhysHand = forwardRef<
         })}
 
         {/* {inputHand && <HandSensor handedness={inputSource.handedness} />} */}
+        {/* </RigidBody> */}
 
         {withDigitalHand && (
           <SpatialHand hand={hand} inputSource={inputSource} id={id} />
