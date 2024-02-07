@@ -1,5 +1,4 @@
 import { createRef } from "react";
-import type { MotionHand } from "@coconut-xr/natuerlich";
 import type { RootState } from "@react-three/fiber";
 import type { RapierRigidBody } from "@react-three/rapier";
 import { Object3D, Quaternion, Vector3 } from "three";
@@ -7,6 +6,13 @@ import { create, type StoreApi } from "zustand";
 import { combine } from "zustand/middleware";
 
 import { HandJoints, jointConnections } from "../constants.js";
+import {
+  _direction,
+  _object,
+  _position,
+  _quaternion,
+  _vector,
+} from "../utils/reserveThreeValues.js";
 import type { PalmJointNames, PalmProperties } from "./HandSensor.js";
 import type { BoneInfo, JointInfo } from "./PhysHand.js";
 
@@ -32,27 +38,27 @@ export interface InteractionPoint {
   heldObjectId: string | null;
 }
 
-type ActualHandBoneNames =
-  | "wrist"
-  | "thumb-metacarpal"
-  | "thumb-phalanx-proximal"
-  | "thumb-phalanx-distal"
-  | "index-finger-metacarpal"
-  | "index-finger-phalanx-proximal"
-  | "index-finger-phalanx-intermediate"
-  | "index-finger-phalanx-distal"
-  | "middle-finger-metacarpal"
-  | "middle-finger-phalanx-proximal"
-  | "middle-finger-phalanx-intermediate"
-  | "middle-finger-phalanx-distal"
-  | "ring-finger-metacarpal"
-  | "ring-finger-phalanx-proximal"
-  | "ring-finger-phalanx-intermediate"
-  | "ring-finger-phalanx-distal"
-  | "pinky-finger-metacarpal"
-  | "pinky-finger-phalanx-proximal"
-  | "pinky-finger-phalanx-intermediate"
-  | "pinky-finger-phalanx-distal";
+// type ActualHandBoneNames =
+//   | "wrist"
+//   | "thumb-metacarpal"
+//   | "thumb-phalanx-proximal"
+//   | "thumb-phalanx-distal"
+//   | "index-finger-metacarpal"
+//   | "index-finger-phalanx-proximal"
+//   | "index-finger-phalanx-intermediate"
+//   | "index-finger-phalanx-distal"
+//   | "middle-finger-metacarpal"
+//   | "middle-finger-phalanx-proximal"
+//   | "middle-finger-phalanx-intermediate"
+//   | "middle-finger-phalanx-distal"
+//   | "ring-finger-metacarpal"
+//   | "ring-finger-phalanx-proximal"
+//   | "ring-finger-phalanx-intermediate"
+//   | "ring-finger-phalanx-distal"
+//   | "pinky-finger-metacarpal"
+//   | "pinky-finger-phalanx-proximal"
+//   | "pinky-finger-phalanx-intermediate"
+//   | "pinky-finger-phalanx-distal";
 
 export type HandBoneNames =
   | "wrist--thumb-metacarpal"
@@ -80,9 +86,13 @@ export type HandBoneNames =
   | "pinky-finger-phalanx-intermediate--pinky-finger-phalanx-distal"
   | "pinky-finger-phalanx-distal--pinky-finger-tip";
 
-export type HandBoneMapping = {
-  [Key in HandBoneNames]: ActualHandBoneNames;
-};
+// export interface AdjacentBoneNames {}
+
+// export type JointToBoneNames = Record<XRHandJoint>;
+
+// export type HandBoneMapping = {
+//   [Key in HandBoneNames]: XRHandJoint;
+// };
 
 export type HandBoneMap = Map<HandBoneNames, BoneInfo>;
 
@@ -112,13 +122,13 @@ export type NewtonState = {
     right: string | null;
   };
   collisions: string[];
-  reservedThreeValues: {
-    vector: THREE.Vector3;
-    position: THREE.Vector3;
-    direction: THREE.Vector3;
-    quaternion: THREE.Quaternion;
-    object: THREE.Object3D;
-  };
+  // reservedThreeValues: {
+  //   vector: THREE.Vector3;
+  //   position: THREE.Vector3;
+  //   direction: THREE.Vector3;
+  //   quaternion: THREE.Quaternion;
+  //   object: THREE.Object3D;
+  // };
 } & {
   onNextFrameCallbacks: Set<
     (state: RootState, delta: number, frame: XRFrame | undefined) => void
@@ -143,7 +153,6 @@ function isTipJointName(name: XRHandJoint): boolean {
 
 interface NewtonStateMethods {
   updateHandBones: (
-    // motionHand: MotionHand,
     hand: XRHand,
     handedness: XRHandedness,
     frame: XRFrame,
@@ -171,13 +180,13 @@ const initialState: NewtonState & NewtonStateMethods = {
     right: null,
   },
   collisions: ["hey"],
-  reservedThreeValues: {
-    vector: new Vector3(),
-    position: new Vector3(),
-    direction: new Vector3(),
-    quaternion: new Quaternion(),
-    object: new Object3D(),
-  },
+  // reservedThreeValues: {
+  //   vector: new Vector3(),
+  //   position: new Vector3(),
+  //   direction: new Vector3(),
+  //   quaternion: new Quaternion(),
+  //   object: new Object3D(),
+  // },
   onNextFrameCallbacks: new Set(),
   updateHandBones: () => {
     return null;
@@ -231,7 +240,7 @@ export const useNewton = create(
         if (!pose) continue;
 
         if (hand) {
-          updateHandBones(hand, handedness, frame, referenceSpace, true);
+          updateHandBones(hand, handedness, frame, referenceSpace, true, false);
           continue;
         }
 
@@ -488,9 +497,6 @@ export const useNewton = create(
 
           if (!endJointSpace) return;
 
-          const { vector, position, direction, quaternion } =
-            get().reservedThreeValues;
-
           const endJointPose = frame.getJointPose?.(
             endJointSpace,
             referenceSpace,
@@ -529,13 +535,15 @@ export const useNewton = create(
                 endJointInfo.name,
               );
               storedBone = {
+                name: `${startJointInfo.name}--${endJointInfo.name}` as HandBoneNames,
                 startJoint: startJointInfo,
                 endJoint: endJointInfo,
                 bone: {
-                  position: position.set(0, 0, 0).clone(),
-                  orientation: quaternion.set(0, 0, 0, 1).clone(),
+                  position: _position.set(0, 0, 0).clone(),
+                  orientation: _quaternion.set(0, 0, 0, 1).clone(),
                 },
-                boneRef: createRef<RapierRigidBody>(),
+                visibleBoneRef: createRef<RapierRigidBody>(),
+                bridgeBoneRef: createRef<RapierRigidBody>(),
                 height: height,
               };
               newtonBones.set(
@@ -553,7 +561,8 @@ export const useNewton = create(
               return;
             }
 
-            const ref = storedBone.boneRef;
+            // const ref = storedBone.boneRef;
+            const ref = storedBone.bridgeBoneRef;
 
             const startPos = startJointInfo.properties.position;
             const startOrientation = startJointInfo.properties.orientation;
@@ -562,23 +571,26 @@ export const useNewton = create(
             const endOrientation = endJointInfo.properties.orientation;
 
             // copying bone position to reserved position Vector3
-            position.copy(startPos).lerpVectors(startPos, endPos, 0.5);
+            _position.copy(startPos).lerpVectors(startPos, endPos, 0.5);
 
             // copying bone direction to reserved direction Vector3
-            direction.copy(startPos).sub(endPos).normalize();
+            _direction.copy(startPos).sub(endPos).normalize();
 
             const vectorIsCorrect =
-              vector.x === 0 && vector.y === 1 && vector.z === 0;
+              _vector.x === 0 && _vector.y === 1 && _vector.z === 0;
 
-            quaternion.setFromUnitVectors(
-              vectorIsCorrect ? vector : vector.set(0, 1, 0),
-              direction,
+            _quaternion.setFromUnitVectors(
+              vectorIsCorrect ? _vector : _vector.set(0, 1, 0),
+              _direction,
             );
 
-            if (ref.current && updateRapier) {
+            if (ref?.current !== null && updateRapier) {
               console.log("updating rapier handbone");
-              ref.current.setNextKinematicTranslation(position);
-              ref.current.setNextKinematicRotation(quaternion);
+
+              if (ref) {
+                ref.current.setNextKinematicTranslation(_position);
+                ref.current.setNextKinematicRotation(_quaternion);
+              }
             }
 
             /**
@@ -590,8 +602,8 @@ export const useNewton = create(
              * 5. the new position of the end joint
              * 6. the new orientation of the end joint
              */
-            storedBone.bone.position.copy(position);
-            storedBone.bone.orientation.copy(quaternion);
+            storedBone.bone.position.copy(_position);
+            storedBone.bone.orientation.copy(_quaternion);
 
             storedBone.startJoint.properties.position.copy(startPos);
             storedBone.startJoint.properties.orientation.copy(startOrientation);
