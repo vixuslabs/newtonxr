@@ -1,9 +1,16 @@
 import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
-import { interactionGroups, RigidBody, useRapier } from "@react-three/rapier";
+import {
+  interactionGroups,
+  RapierRigidBody,
+  RigidBody,
+  useRapier,
+} from "@react-three/rapier";
 
 import { useConst, useForceUpdate } from "../utils/utils.js";
 import { BridgeBone } from "./HandBuilder.js";
+import { LinkBones, LinkBoness } from "./LinkBones.js";
+import { SyncBone } from "./SyncBone.js";
 import TrueHandClass from "./TrueHandClass.js";
 
 interface TrueHandProps {
@@ -87,6 +94,13 @@ export function TrueHand({
     }
 
     hand.updateBonesOnFrame(XRHand, xrFrame, referenceSpace);
+
+    // console.log(
+    //   "hand.rapier.impulseJoints",
+    //   hand.rapier.impulseJoints.getAll(),
+    // );
+
+    // hand.updateKinematicHand(XRHand, xrFrame, referenceSpace);
   });
 
   return (
@@ -96,7 +110,7 @@ export function TrueHand({
           <Fragment key={bone.id}>
             {/* Bridge Bone */}
             <RigidBody
-              ref={bone.bridgeBoneRef}
+              ref={bone.refs.kinematicBoneRef}
               type="kinematicPosition"
               colliders={false}
               collisionGroups={interactionGroups([], [])}
@@ -113,7 +127,35 @@ export function TrueHand({
               </mesh>
             </RigidBody>
 
+            {/* <LinkBones
+              kinematicBone={bone.bridgeBoneRef}
+              trueBone={bone.visibleBoneRef}
+            /> */}
+
+            {/* <LinkBoness boneName={bone.name} ref={bone.refs} /> */}
+
+            <SyncBone bone={bone} />
+
             {/* Visible Bone */}
+            {/* <RigidBody
+              ref={bone.refs.trueBoneRef}
+              type="dynamic"
+              gravityScale={0}
+              restitution={0}
+              colliders="cuboid"
+              collisionGroups={interactionGroups([0], [6, 7, 8])}
+            >
+              <mesh visible={true}>
+                <boxGeometry
+                  args={[
+                    bone.boxArgs.width,
+                    bone.boxArgs.height,
+                    bone.boxArgs.depth,
+                  ]}
+                />
+                <meshBasicMaterial color="white" />
+              </mesh>
+            </RigidBody> */}
           </Fragment>
         );
       })}

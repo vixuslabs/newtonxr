@@ -1,11 +1,10 @@
-import { UUID } from "crypto";
+import type { UUID } from "crypto";
 import React from "react";
-import type {
-  Quaternion as RapierQuaternion,
+import RAPIER, {
   Vector3 as RapierVector3,
-  World,
+  type Quaternion as RapierQuaternion,
+  type World,
 } from "@dimforge/rapier3d-compat";
-import RAPIER from "@dimforge/rapier3d-compat";
 // import type { Vector3 as Vector3Like } from "@react-three/fiber";
 import type { RapierCollider, RapierRigidBody } from "@react-three/rapier";
 // import { quat, vec3 } from "@react-three/rapier";
@@ -134,6 +133,62 @@ const boneNames: HandBoneArr = [
   "pinky-finger-phalanx-distal--pinky-finger-tip",
 ];
 
+enum JointNamesEnum {
+  "wrist",
+  "thumb-metacarpal",
+  "thumb-phalanx-proximal",
+  "thumb-phalanx-distal",
+  "thumb-tip",
+  "index-finger-metacarpal",
+  "index-finger-phalanx-proximal",
+  "index-finger-phalanx-intermediate",
+  "index-finger-phalanx-distal",
+  "index-finger-tip",
+  "middle-finger-metacarpal",
+  "middle-finger-phalanx-proximal",
+  "middle-finger-phalanx-intermediate",
+  "middle-finger-phalanx-distal",
+  "middle-finger-tip",
+  "ring-finger-metacarpal",
+  "ring-finger-phalanx-proximal",
+  "ring-finger-phalanx-intermediate",
+  "ring-finger-phalanx-distal",
+  "ring-finger-tip",
+  "pinky-finger-metacarpal",
+  "pinky-finger-phalanx-proximal",
+  "pinky-finger-phalanx-intermediate",
+  "pinky-finger-phalanx-distal",
+  "pinky-finger-tip",
+}
+
+const jointNames: XRHandJoint[] = [
+  "wrist",
+  "thumb-metacarpal",
+  "thumb-phalanx-proximal",
+  "thumb-phalanx-distal",
+  "thumb-tip",
+  "index-finger-metacarpal",
+  "index-finger-phalanx-proximal",
+  "index-finger-phalanx-intermediate",
+  "index-finger-phalanx-distal",
+  "index-finger-tip",
+  "middle-finger-metacarpal",
+  "middle-finger-phalanx-proximal",
+  "middle-finger-phalanx-intermediate",
+  "middle-finger-phalanx-distal",
+  "middle-finger-tip",
+  "ring-finger-metacarpal",
+  "ring-finger-phalanx-proximal",
+  "ring-finger-phalanx-intermediate",
+  "ring-finger-phalanx-distal",
+  "ring-finger-tip",
+  "pinky-finger-metacarpal",
+  "pinky-finger-phalanx-proximal",
+  "pinky-finger-phalanx-intermediate",
+  "pinky-finger-phalanx-distal",
+  "pinky-finger-tip",
+];
+
 interface UpdateBonesOnFrameOptions {
   updateRapier?: boolean;
   updateSensor?: boolean;
@@ -166,6 +221,16 @@ interface JointInfo {
   handedness?: "left" | "right";
 }
 
+interface KinematicJointInfo {
+  name: XRHandJoint;
+  // properties: JointProperties;
+  // rigidBody: RapierRigidBody;
+  transform: RapierBoneRigidBody;
+  rigidBody: React.RefObject<RapierRigidBody>;
+  readonly isTipJoint: boolean;
+  handedness?: "left" | "right";
+}
+
 export interface BoneInfo {
   name: HandBoneNames;
   id: UUID;
@@ -173,8 +238,10 @@ export interface BoneInfo {
   endJoint: JointInfo;
   transform: RapierBoneRigidBody;
   rigidBody?: RapierRigidBody;
-  visibleBoneRef: React.RefObject<RapierRigidBody>;
-  bridgeBoneRef: React.RefObject<RapierRigidBody>;
+  refs: {
+    trueBoneRef: React.RefObject<RapierRigidBody>;
+    kinematicBoneRef: React.RefObject<RapierRigidBody>;
+  };
   isTipBone: boolean;
   boxArgs: {
     width: number;
@@ -216,6 +283,7 @@ export default class TrueHand {
   allBonesLinked: boolean;
   bones: BoneInfo[];
   xrJoints: Map<XRHandJoint, JointInfo>;
+  kinematicJoints: KinematicJointInfo[];
   sensorJoints: Map<PalmJointNames, PalmProperties> | undefined;
   rapier: World;
 
@@ -224,6 +292,7 @@ export default class TrueHand {
   constructor({ handedness, rapier, withSensor = true }: TrueHandOptions) {
     this.handedness = handedness;
     this.bones = [];
+    this.kinematicJoints = [];
     this.xrJoints = new Map<XRHandJoint, JointInfo>();
     this.visible = false;
     this.allBonesLinked = false;
@@ -302,83 +371,34 @@ export default class TrueHand {
           depth: 0.004,
         },
         isTipBone: isTipJointName(endJointName),
-        visibleBoneRef: React.createRef<RapierRigidBody>(),
-        bridgeBoneRef: React.createRef<RapierRigidBody>(),
+        refs: {
+          trueBoneRef: React.createRef<RapierRigidBody>(),
+          kinematicBoneRef: React.createRef<RapierRigidBody>(),
+        },
       };
       this.bones.push(bone);
     });
-    this.intializedHand = true;
-    this.visible = true;
-  }
 
-  updateBone(name: HandBoneNames, bone: BoneInfo) {
-    const index = BoneNames[name];
-    this.bones[index] = bone;
-  }
-
-  updateKinematicHand(
-    hand: XRHand,
-    frame: XRFrame,
-    referenceSpace: XRReferenceSpace,
-    options: UpdateBonesOnFrameOptions = {
-      updateRapier: true,
-      updateSensor: true,
-    },
-  ) {
-    // Sets a RigidBody at each webxr joint for the KinematicHand
-
-    if (!this.visible) {
-      console.log("updateBonesOnFrame - Hand not visible");
-      return;
-    }
-    if (!this.intializedHand) {
-      console.log("updateBonesOnFrame - Hand not initialized, init now");
-      this.initHand();
-      return;
-    }
-
-    for (const jointSpace of hand.values()) {
-      const joint = this.xrJoints.get(jointSpace.jointName);
+    jointNames.forEach((jointName) => {
+      const joint = this.xrJoints.get(jointName);
 
       if (!joint) {
-        console.log(
-          `Joint ${jointSpace.jointName} not found in this.xrJoints, setting now`,
-        );
-
-        this.xrJoints.set(jointSpace.jointName, {
-          name: jointSpace.jointName,
-          properties: {
-            position: new Vector3(),
-            orientation: new Quaternion(),
-          },
-          isTipJoint: isTipJointName(jointSpace.jointName),
-        });
-        continue;
+        throw new Error(`Joint ${jointName} not found`);
       }
 
-      const startJointPose = frame.getJointPose?.(jointSpace, referenceSpace);
+      this.kinematicJoints.push({
+        name: jointName,
+        rigidBody: React.createRef<RapierRigidBody>(),
+        transform: {
+          position: new Vector3(),
+          orientation: new Quaternion(),
+        },
+        isTipJoint: joint.isTipJoint,
+      });
+    });
 
-      if (!startJointPose) {
-        console.log(
-          `Joint pose for ${jointSpace.jointName} not found in frame.getJointPose`,
-        );
-        continue;
-      }
-
-      this.updateJointProperties(
-        jointSpace.jointName,
-        startJointPose.transform.position,
-        startJointPose.transform.orientation,
-      );
-
-      // if (this.sensorJoints && isPalmJointName(jointSpace.jointName)) {
-      //   this.updateSensor(
-      //     jointSpace.jointName,
-      //     startJointPose.transform.position,
-      //     startJointPose.transform.orientation,
-      //   );
-      // }
-    }
+    this.intializedHand = true;
+    this.visible = true;
   }
 
   updateBonesOnFrame(
@@ -390,6 +410,7 @@ export default class TrueHand {
       updateSensor: true,
     },
   ) {
+    console.log("\n-----------------updateBonesOnFrame-----------------");
     if (!this.visible) {
       console.log("updateBonesOnFrame - Hand not visible");
       return;
@@ -442,10 +463,11 @@ export default class TrueHand {
       // }
     }
 
-    console.log(`${this.handedness} hand bones: `, this.bones);
+    // console.log(`${this.handedness} hand bones: `, this.bones);
 
     if (!this.allBonesLinked) {
-      // this.linkBones();
+      console.log("updateBonesOnFrame - Linking bones now");
+      this.addSpringJoints();
     }
 
     if (options.updateRapier) {
@@ -457,6 +479,10 @@ export default class TrueHand {
     }
 
     this.notifyUpdate();
+
+    console.log("this.allBonesLinked", this.allBonesLinked);
+
+    console.log("-----------------updateBonesOnFrame END -----------------\n");
   }
 
   createJointFromBones(boneOne: HandBoneNames, boneTwo: HandBoneNames) {
@@ -483,16 +509,75 @@ export default class TrueHand {
     this.intializedHand = initialized;
   }
 
-  private createRapierJoints() {
-    // FIX: Create RapierJoints in Here
-  }
-
   reset() {
     this.xrJoints.clear();
     this.bones = [];
     this.visible = false;
     this.intializedHand = false;
     this.allBonesLinked = false;
+  }
+
+  private addSpringJoints() {
+    // FIX: Create RapierJoints in Here
+    return;
+
+    const stiffness = 1.0e3;
+    const mass = 1;
+    const criticalDamping = 2.0 * Math.sqrt(stiffness * mass);
+    const anchor = new RapierVector3(0, 0, 0);
+    let allBonesLinked = true;
+
+    this.bones.forEach((bone) => {
+      const kinematicBone = bone.refs.kinematicBoneRef.current;
+      const trueBone = bone.refs.trueBoneRef.current;
+
+      if (!allBonesLinked) return;
+
+      console.log("kinematicBone", kinematicBone);
+      console.log("trueBone", trueBone);
+
+      if (!kinematicBone) {
+        console.log("bone.kinematicBoneRef.current not set");
+        allBonesLinked = false;
+        return;
+      }
+      if (!trueBone) {
+        console.log("bone.trueBoneRef.current not set");
+        allBonesLinked = false;
+        return;
+      }
+
+      const anchor2 = new RapierVector3(0, 1, 0);
+      const anchor3 = new RapierVector3(1, 1, 0);
+
+      const springJoint = RAPIER.JointData.spring(
+        0,
+        stiffness,
+        criticalDamping * 1.5,
+        anchor3,
+        anchor2,
+      );
+
+      console.log("springJoint", springJoint);
+      console.log("kinematicBone.translation()", kinematicBone.translation());
+      console.log("trueBone.translation()", trueBone.translation());
+
+      const joint = this.rapier.createImpulseJoint(
+        springJoint,
+        kinematicBone,
+        trueBone,
+        true,
+      );
+      console.log("joint", joint);
+
+      // const hey = this.rapier.createRigidBody(
+      //   RAPIER.RigidBodyDesc.kinematicPositionBased(),
+      // );
+
+      // console.log("hey", hey);
+    });
+
+    this.allBonesLinked = allBonesLinked;
   }
 
   public setUpdateCallback(callback: () => void): void {
@@ -566,14 +651,14 @@ export default class TrueHand {
         _direction,
       );
 
-      // console.log("bone.bridgeBoneRef.current", bone.bridgeBoneRef.current);
+      // console.log("bone.kinematicBoneRef.current", bone.kinematicBoneRef.current);
       // console.log("bone ", bone);
 
       // Update bone transform
-      bone.bridgeBoneRef.current?.setNextKinematicTranslation(
+      bone.refs.kinematicBoneRef.current?.setNextKinematicTranslation(
         bone.transform.position,
       );
-      bone.bridgeBoneRef.current?.setNextKinematicRotation(
+      bone.refs.kinematicBoneRef.current?.setNextKinematicRotation(
         bone.transform.orientation,
       );
 
@@ -582,10 +667,10 @@ export default class TrueHand {
       // this.updateBone(bone.name, bone);
     });
 
-    if (!this.allBonesLinked) {
-      // this.linkBones();
-      this.allBonesLinked = true;
-    }
+    // if (!this.allBonesLinked) {
+    //   // this.linkBones();
+    //   this.allBonesLinked = true;
+    // }
   }
 
   private updateSensorBones() {
@@ -619,5 +704,129 @@ export default class TrueHand {
   ) {
     console.log("height: ", jointOne.distanceTo(jointTwo));
     return jointOne.distanceTo(jointTwo);
+  }
+
+  private updateKinematicJointProperties(
+    joint: KinematicJointInfo,
+    jointName: XRHandJoint,
+    position: RapierVector3,
+    orientation: RapierQuaternion,
+  ) {
+    // const joint = this.kinematicJoints.get(jointName);
+
+    if (!joint) {
+      throw new Error(`Joint ${jointName} not found`);
+    }
+    joint.rigidBody.current?.setNextKinematicTranslation(
+      joint.transform.position,
+    );
+    joint.rigidBody.current?.setNextKinematicRotation(orientation);
+
+    // joint.rigidBody.setNextKinematicTranslation(position);
+    // joint.rigidBody.setNextKinematicRotation(orientation);
+  }
+
+  updateKinematicHand(
+    hand: XRHand,
+    frame: XRFrame,
+    referenceSpace: XRReferenceSpace,
+  ) {
+    // Sets a RigidBody at each webxr joint for the KinematicHand
+
+    if (!this.visible) {
+      console.log("updateBonesOnFrame - Hand not visible");
+      return;
+    }
+    if (!this.intializedHand) {
+      console.log("updateBonesOnFrame - Hand not initialized, init now");
+      this.initHand();
+      return;
+    }
+
+    for (const jointSpace of hand.values()) {
+      // const joint = this.kinematicJoints.get(jointSpace.jointName);
+
+      const jointIndex = JointNamesEnum[jointSpace.jointName];
+
+      // if (!joint) {
+      //   console.log(
+      //     `Joint ${jointSpace.jointName} not found in this.xrJoints, setting now`,
+      //   );
+
+      //   // const jointIndex = BoneNames[jointSpace.jointName];
+
+      //   // const rbDesc = RAPIER.RigidBodyDesc.kinematicPositionBased();
+
+      //   // const rb = this.rapier.createRigidBody(rbDesc);
+
+      //   this.kinematicJoints.set(jointSpace.jointName, {
+      //     name: jointSpace.jointName,
+      //     rigidBody: React.createRef<RapierRigidBody>(),
+      //     isTipJoint: isTipJointName(jointSpace.jointName),
+      //   });
+      //   continue;
+      // }
+
+      const kinematicJoint = this.kinematicJoints[jointIndex];
+
+      if (!kinematicJoint) {
+        throw new Error(`Joint ${jointSpace.jointName} not found`);
+      }
+
+      const startJointPose = frame.getJointPose?.(jointSpace, referenceSpace);
+
+      if (!startJointPose) {
+        console.log(
+          `Joint pose for ${jointSpace.jointName} not found in frame.getJointPose`,
+        );
+        continue;
+      }
+
+      kinematicJoint.transform.position.setX(
+        startJointPose.transform.position.x,
+      );
+      kinematicJoint.transform.position.setY(
+        startJointPose.transform.position.y,
+      );
+      kinematicJoint.transform.position.setZ(
+        startJointPose.transform.position.z,
+      );
+
+      // kinematicJoint.transform.orientation.set(startJointPose.transform.orientation.x);
+      // kinematicJoint.transform.orientation.setY(startJointPose.transform.orientation.y);
+      // kinematicJoint.transform.orientation.setZ(startJointPose.transform.orientation.z);
+      // kinematicJoint.transform.orientation.setW(startJointPose.transform.orientation.w);
+
+      // kinematicJoint.transform.orientation.copy(
+      //   startJointPose.transform.orientation,
+      // );
+
+      this.updateKinematicJointProperties(
+        kinematicJoint,
+        jointSpace.jointName,
+        startJointPose.transform.position,
+        startJointPose.transform.orientation,
+      );
+
+      console.log(
+        "kinematicJoint.rigidBody.current?.translation()",
+        kinematicJoint.rigidBody.current?.translation(),
+      );
+
+      // this.updateJointProperties(
+      //   jointSpace.jointName,
+      //   startJointPose.transform.position,
+      //   startJointPose.transform.orientation,
+      // );
+
+      // if (this.sensorJoints && isPalmJointName(jointSpace.jointName)) {
+      //   this.updateSensor(
+      //     jointSpace.jointName,
+      //     startJointPose.transform.position,
+      //     startJointPose.transform.orientation,
+      //   );
+      // }
+    }
+    this.notifyUpdate();
   }
 }
