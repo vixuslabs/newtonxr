@@ -1,3 +1,9 @@
+import { useCallback, useRef, useState } from "react";
+import type {
+  Quaternion as RapierQuaternion,
+  Vector3 as RapierVector3,
+} from "@dimforge/rapier3d-compat";
+
 import type { HandBoneNames } from "../index.js";
 
 export const findCommonJoint = (
@@ -20,6 +26,39 @@ export const findCommonJoint = (
 interface AdjacentBones {
   firstBoneName: HandBoneNames;
   secondBoneName: HandBoneNames;
+}
+
+export const lerpRapierVectors = (
+  v1: RapierVector3,
+  v2: RapierVector3,
+  alpha: number,
+) => {
+  return {
+    x: v1.x + (v2.x - v1.x) * alpha,
+    y: v1.y + (v2.y - v1.y) * alpha,
+    z: v1.z + (v2.z - v1.z) * alpha,
+  };
+};
+
+export function useConst<T>(initialValue: T | (() => T)): T {
+  const ref = useRef<{ value: T }>();
+  if (ref.current === undefined) {
+    ref.current = {
+      value:
+        typeof initialValue === "function"
+          ? (initialValue as () => T)()
+          : initialValue,
+    };
+  }
+  return ref.current.value;
+}
+
+export function useForceUpdate() {
+  const [, setTick] = useState(0);
+  const update = useCallback(() => {
+    setTick((tick) => tick + 1);
+  }, []);
+  return update;
 }
 
 /**

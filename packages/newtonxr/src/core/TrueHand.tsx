@@ -1,51 +1,64 @@
-import React, { Fragment, useEffect, useRef } from "react";
+import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { interactionGroups, RigidBody, useRapier } from "@react-three/rapier";
 
+import { useConst, useForceUpdate } from "../utils/utils.js";
+import { BridgeBone } from "./HandBuilder.js";
 import TrueHandClass from "./TrueHandClass.js";
 
 interface TrueHandProps {
   inputSource: XRInputSource;
+  XRHand: XRHand;
   handedness: XRHandedness;
   children?: React.ReactNode;
   id?: number;
 }
 
-export function TrueHand({ handedness, inputSource, id }: TrueHandProps) {
-  const hand = useRef<TrueHandClass | undefined>();
-
+export function TrueHand({
+  handedness,
+  XRHand,
+  inputSource,
+  id,
+}: TrueHandProps) {
+  const forceUpdate = useForceUpdate();
   const { world } = useRapier();
-  useEffect(() => {
-    const trueHand = new TrueHandClass({
-      handedness,
-      rapier: world,
-    });
-    hand.current = trueHand;
-    console.log("TrueHand - hand", trueHand);
-    trueHand.setVisibility(true);
 
+  const hand = useConst<TrueHandClass>(
+    () =>
+      new TrueHandClass({
+        handedness,
+        rapier: world,
+      }),
+  );
+
+  useEffect(() => {
+    // hand.visible = true;
+    hand.setUpdateCallback(forceUpdate);
+    // setStateHand(hand);
+    return () => {
+      // setStateHand(undefined);
+      hand.clearUpdateCallback();
+      // resetWorldProxy();
+    };
+  }, [forceUpdate]);
+
+  useEffect(() => {
     return () => {
       console.log("TrueHand - cleanup");
-      // setHand(undefined);
-      hand.current?.setVisibility(false);
+      hand.reset();
     };
-  }, [handedness]);
+  }, []);
 
   useFrame((state, delta, xrFrame) => {
-    console.log("-----------------TrueHand - useFrame-----------------");
-    console.log("TrueHand - hand", hand);
-    console.log("-----------------TrueHand - useFrame-----------------");
+    // console.log("-----------------TrueHand - useFrame-----------------");
+    // console.log("TrueHand - hand", hand);
+    // console.log("TrueHand - XRHand", XRHand);
+    // console.log("TrueHand - inputSource.hand", inputSource.hand);
+    // console.log("-----------------TrueHand - useFrame-----------------");
 
     if (!hand) {
       console.log("TrueHand - no hand");
       return;
-    }
-
-    if (!hand.current?.intializedHand) {
-      console.log("TrueHand - hand not initialized");
-      console.log("---SHOW ONLY HAPPEN ONCE---");
-      hand.current?.initHand();
-      // return
     }
 
     if (!inputSource.hand) {
@@ -64,32 +77,23 @@ export function TrueHand({ handedness, inputSource, id }: TrueHandProps) {
     if (!referenceSpace) {
       console.log("TrueHand - no referenceSpace");
       // hand.visible = false;
-
       return;
     }
 
-    // hand.visible = true;
-    // hand.visible ?? hand.setVisibility(true);
+    if (!XRHand) {
+      console.log("TrueHand - no XRHand");
+      // hand.visible = false;
+      return;
+    }
 
-    console.log("TrueHand - updating hand");
-
-    hand.current?.updateBonesOnFrame(inputSource.hand, xrFrame, referenceSpace);
-
-    // console.log("TrueHand - hand updated");
-    // console.log("TrueHand - hand", hand);
+    hand.updateBonesOnFrame(XRHand, xrFrame, referenceSpace);
   });
-
-  // useEffect(() => {}, [hand]);
-
-  console.log("IN COMP GLOBAL TrueHand - hand", hand);
 
   return (
     <>
-      {hand.current?.bones.map((bone) => {
-        console.log("creating RigidBody TrueHand - bone", bone);
-
+      {hand.bones.map((bone) => {
         return (
-          <Fragment key={id}>
+          <Fragment key={bone.id}>
             {/* Bridge Bone */}
             <RigidBody
               ref={bone.bridgeBoneRef}
@@ -97,20 +101,19 @@ export function TrueHand({ handedness, inputSource, id }: TrueHandProps) {
               colliders={false}
               collisionGroups={interactionGroups([], [])}
             >
-              <mesh visible={hand.current?.visible}>
-                <boxGeometry args={[0.005, bone.height, 0.004]} />
-                <meshBasicMaterial color={"white"} />
+              <mesh visible={hand.visible}>
+                <boxGeometry
+                  args={[
+                    bone.boxArgs.width,
+                    bone.boxArgs.height,
+                    bone.boxArgs.depth,
+                  ]}
+                />
+                <meshBasicMaterial wireframe color="black" />
               </mesh>
             </RigidBody>
 
             {/* Visible Bone */}
-            {/* <RigidBody
-            ref={bone.visibleBoneRef}
-            type="dynamic"
-          >
-
-
-          </RigidBody> */}
           </Fragment>
         );
       })}
