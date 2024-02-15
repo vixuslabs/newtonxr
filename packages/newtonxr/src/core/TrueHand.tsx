@@ -8,7 +8,6 @@ import {
 } from "@react-three/rapier";
 
 import { useConst, useForceUpdate } from "../utils/utils.js";
-import { BridgeBone } from "./HandBuilder.js";
 import { LinkBones, LinkBoness } from "./LinkBones.js";
 import { SyncBone } from "./SyncBone.js";
 import TrueHandClass from "./TrueHandClass.js";
@@ -57,12 +56,6 @@ export function TrueHand({
   }, []);
 
   useFrame((state, delta, xrFrame) => {
-    // console.log("-----------------TrueHand - useFrame-----------------");
-    // console.log("TrueHand - hand", hand);
-    // console.log("TrueHand - XRHand", XRHand);
-    // console.log("TrueHand - inputSource.hand", inputSource.hand);
-    // console.log("-----------------TrueHand - useFrame-----------------");
-
     if (!hand) {
       console.log("TrueHand - no hand");
       return;
@@ -75,7 +68,6 @@ export function TrueHand({
 
     if (!xrFrame) {
       console.log("TrueHand - no xrFrame");
-      // hand.visible = false;
       return;
     }
 
@@ -83,29 +75,21 @@ export function TrueHand({
 
     if (!referenceSpace) {
       console.log("TrueHand - no referenceSpace");
-      // hand.visible = false;
       return;
     }
 
     if (!XRHand) {
       console.log("TrueHand - no XRHand");
-      // hand.visible = false;
       return;
     }
 
     hand.updateBonesOnFrame(XRHand, xrFrame, referenceSpace);
-
-    // console.log(
-    //   "hand.rapier.impulseJoints",
-    //   hand.rapier.impulseJoints.getAll(),
-    // );
-
-    // hand.updateKinematicHand(XRHand, xrFrame, referenceSpace);
   });
 
   return (
     <>
       {hand.bones.map((bone) => {
+        if (!bone.boxArgs.height) return null;
         return (
           <Fragment key={bone.id}>
             {/* Bridge Bone */}
@@ -113,9 +97,10 @@ export function TrueHand({
               ref={bone.refs.kinematicBoneRef}
               type="kinematicPosition"
               colliders={false}
+              canSleep={false}
               collisionGroups={interactionGroups([], [])}
             >
-              <mesh visible={hand.visible}>
+              <mesh visible={false}>
                 <boxGeometry
                   args={[
                     bone.boxArgs.width,
@@ -127,35 +112,46 @@ export function TrueHand({
               </mesh>
             </RigidBody>
 
-            {/* <LinkBones
-              kinematicBone={bone.bridgeBoneRef}
-              trueBone={bone.visibleBoneRef}
-            /> */}
-
-            {/* <LinkBoness boneName={bone.name} ref={bone.refs} /> */}
-
-            <SyncBone bone={bone} />
-
             {/* Visible Bone */}
-            {/* <RigidBody
+            <RigidBody
               ref={bone.refs.trueBoneRef}
               type="dynamic"
               gravityScale={0}
               restitution={0}
+              // friction={0}
+              canSleep={false}
               colliders="cuboid"
-              collisionGroups={interactionGroups([0], [6, 7, 8])}
+              userData={{ name: bone.name }}
+              // interacts with objects and TrackedMeshes
+              collisionGroups={interactionGroups([0], [7, 8])}
+              density={5}
+              // dominanceGroup={5}
+              onCollisionEnter={(payload) => {
+                const { target } = payload;
+                console.log("bone collision enter ", payload);
+                target.rigidBody?.lockRotations(true, true);
+                // target.rigidBody?.lockTranslations(true, true);
+              }}
+              onCollisionExit={(payload) => {
+                const { target } = payload;
+                // console.log("bone collision exit ", payload);
+                target.rigidBody?.lockRotations(false, true);
+                // target.rigidBody?.lockTranslations(false, true);
+              }}
+              ccd
             >
               <mesh visible={true}>
                 <boxGeometry
                   args={[
                     bone.boxArgs.width,
-                    bone.boxArgs.height,
+                    bone.boxArgs.height ?? 0.03,
                     bone.boxArgs.depth,
                   ]}
+                  // args={[bone.boxArgs.width, 0.04, bone.boxArgs.depth]}
                 />
-                <meshBasicMaterial color="white" />
+                <meshBasicMaterial transparent opacity={0.5} color="white" />
               </mesh>
-            </RigidBody> */}
+            </RigidBody>
           </Fragment>
         );
       })}
