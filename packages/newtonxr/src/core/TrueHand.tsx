@@ -1,22 +1,26 @@
-import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import React, { Fragment, useEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
+  CuboidCollider,
+  // CoefficientCombineRule,
   interactionGroups,
-  RapierRigidBody,
+  // RapierRigidBody,
   RigidBody,
+  RoundCylinderCollider,
+  RoundCylinderColliderProps,
   useRapier,
+  type RigidBodyOptions,
 } from "@react-three/rapier";
 
 import { useConst, useForceUpdate } from "../utils/utils.js";
-import { LinkBones, LinkBoness } from "./LinkBones.js";
-import { SyncBone } from "./SyncBone.js";
 import TrueHandClass from "./TrueHandClass.js";
 
-interface TrueHandProps {
+interface TrueHandProps extends RigidBodyOptions {
   inputSource: XRInputSource;
   XRHand: XRHand;
   handedness: XRHandedness;
-  children?: React.ReactNode;
+  bonesVisible?: boolean;
+  boneShape?: "cylinder" | "cuboid";
   id?: number;
 }
 
@@ -24,8 +28,13 @@ export function TrueHand({
   handedness,
   XRHand,
   inputSource,
+  bonesVisible = true,
+  boneShape = "cylinder",
   id,
+  ...props
 }: TrueHandProps) {
+  console.log(" ----------- INSIDE TrueHand -----------");
+
   const forceUpdate = useForceUpdate();
   const { world } = useRapier();
 
@@ -33,18 +42,14 @@ export function TrueHand({
     () =>
       new TrueHandClass({
         handedness,
-        rapier: world,
+        rapierWorld: world,
       }),
   );
 
   useEffect(() => {
-    // hand.visible = true;
     hand.setUpdateCallback(forceUpdate);
-    // setStateHand(hand);
     return () => {
-      // setStateHand(undefined);
       hand.clearUpdateCallback();
-      // resetWorldProxy();
     };
   }, [forceUpdate]);
 
@@ -86,13 +91,82 @@ export function TrueHand({
     hand.updateBonesOnFrame(XRHand, xrFrame, referenceSpace);
   });
 
+  // return (
+  //   <Fragment key={id}>
+  //     {hand.completeFingers.map((fingerBones) => {
+  //       return (
+  //         <>
+  //           {fingerBones.map((bone) => (
+  //             <Fragment key={`kinematicBone: ` + bone.id}>
+  //               <RigidBody
+  //                 ref={bone.refs.kinematicBoneRef}
+  //                 type="kinematicPosition"
+  //                 colliders={false}
+  //                 canSleep={false}
+  //                 collisionGroups={interactionGroups([], [])}
+  //               >
+  //                 <mesh visible={false}>
+  //                   <boxGeometry
+  //                     args={[
+  //                       bone.boxArgs.width,
+  //                       bone.boxArgs.height,
+  //                       bone.boxArgs.depth,
+  //                     ]}
+  //                   />
+  //                   <meshBasicMaterial wireframe color="black" />
+  //                 </mesh>
+  //               </RigidBody>
+  //             </Fragment>
+  //           ))}
+
+  //           <RigidBody
+  //             type="dynamic"
+  //             gravityScale={0}
+  //             restitution={0}
+  //             // restitutionCombineRule={CoefficientCombineRule.Min}
+  //             // friction={0}
+  //             canSleep={false}
+  //             // colliders="cuboid"
+  //             colliders={false}
+  //             // interacts with objects and TrackedMeshes
+  //             collisionGroups={interactionGroups([0], [7, 8])}
+  //             density={5}
+  //             // dominanceGroup={5}
+  //             onCollisionEnter={(payload) => {
+  //               const { target } = payload;
+  //               console.log("bone collision enter ", payload);
+  //               target.rigidBody?.lockRotations(true, true);
+  //               // target.rigidBody?.lockTranslations(true, true);
+  //             }}
+  //             onCollisionExit={(payload) => {
+  //               const { target } = payload;
+  //               // console.log("bone collision exit ", payload);
+  //               target.rigidBody?.lockRotations(false, true);
+
+  //               // target.rigidBody?.lockTranslations(false, true);
+  //             }}
+  //             ccd
+  //             {...props}
+  //           >
+  //             {fingerBones.map((bone) => (
+  //               <>
+  //                 <RoundCylinderCollider></RoundCylinderCollider>
+  //               </>
+  //             ))}
+  //           </RigidBody>
+  //         </>
+  //       );
+  //     })}
+  //   </Fragment>
+  // );
+
   return (
-    <>
+    <Fragment key={id}>
       {hand.bones.map((bone) => {
         if (!bone.boxArgs.height) return null;
         return (
           <Fragment key={bone.id}>
-            {/* Bridge Bone */}
+            {/* Kinematic Bone */}
             <RigidBody
               ref={bone.refs.kinematicBoneRef}
               type="kinematicPosition"
@@ -112,49 +186,81 @@ export function TrueHand({
               </mesh>
             </RigidBody>
 
-            {/* Visible Bone */}
+            {/* True Bone */}
             <RigidBody
-              ref={bone.refs.trueBoneRef}
               type="dynamic"
               gravityScale={0}
-              restitution={0}
-              // friction={0}
               canSleep={false}
-              colliders="cuboid"
+              colliders={false}
               userData={{ name: bone.name }}
-              // interacts with objects and TrackedMeshes
               collisionGroups={interactionGroups([0], [7, 8])}
               density={5}
-              // dominanceGroup={5}
               onCollisionEnter={(payload) => {
                 const { target } = payload;
                 console.log("bone collision enter ", payload);
                 target.rigidBody?.lockRotations(true, true);
-                // target.rigidBody?.lockTranslations(true, true);
               }}
               onCollisionExit={(payload) => {
                 const { target } = payload;
-                // console.log("bone collision exit ", payload);
                 target.rigidBody?.lockRotations(false, true);
-                // target.rigidBody?.lockTranslations(false, true);
               }}
               ccd
+              {...props}
+              ref={bone.refs.trueBoneRef}
             >
               <mesh visible={true}>
-                <boxGeometry
-                  args={[
-                    bone.boxArgs.width,
-                    bone.boxArgs.height ?? 0.03,
-                    bone.boxArgs.depth,
-                  ]}
-                  // args={[bone.boxArgs.width, 0.04, bone.boxArgs.depth]}
+                {boneShape === "cylinder" ? (
+                  <>
+                    <cylinderGeometry
+                      args={[
+                        bone.boxArgs.width / 2,
+                        bone.boxArgs.width / 2,
+                        bone.boxArgs.height,
+                      ]}
+                    />
+
+                    <RoundCylinderCollider
+                      args={[
+                        bone.boxArgs.height / 2,
+                        bone.boxArgs.width / 2,
+                        0,
+                      ]}
+                      friction={1}
+                      restitution={0}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <boxGeometry
+                      args={[
+                        bone.boxArgs.width,
+                        bone.boxArgs.height,
+                        bone.boxArgs.depth,
+                      ]}
+                    />
+
+                    <CuboidCollider
+                      args={[
+                        bone.boxArgs.width,
+                        bone.boxArgs.height,
+                        bone.boxArgs.depth,
+                      ]}
+                      friction={1}
+                      restitution={0}
+                    />
+                  </>
+                )}
+
+                <meshBasicMaterial
+                  transparent
+                  opacity={bonesVisible ? 0.5 : 0}
+                  color="white"
                 />
-                <meshBasicMaterial transparent opacity={0.5} color="white" />
               </mesh>
             </RigidBody>
           </Fragment>
         );
       })}
-    </>
+    </Fragment>
   );
 }
