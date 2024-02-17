@@ -12,16 +12,18 @@ import type {
 import { WorldStepCallback } from "@react-three/rapier";
 // import { quat, vec3 } from "@react-three/rapier";
 import { Bone, Quaternion, Vector3 } from "three";
+import { XRHandModel } from "three/examples/jsm/Addons.js";
 
 import { JointType } from "../hooks/useHandHooks.js";
 import {
   _direction,
+  _position,
+  _quaternion,
   // _object,
   // _position,
   _vector,
 } from "../utils/reserveThreeValues.js";
 import { isTipJointName } from "./index.js";
-import type { HandBoneNames } from "./index.js";
 
 export const jointTypeMappings = new Map<XRHandJoint, JointType>([
   // Wrist and thumb joints
@@ -99,7 +101,7 @@ interface PalmProperties {
 
 type PalmJointMap = Map<PalmJointNames, PalmProperties>;
 
-enum BoneNames {
+export enum HandBoneNamesEnum {
   "wrist--thumb-metacarpal",
   "thumb-metacarpal--thumb-phalanx-proximal",
   "thumb-phalanx-proximal--thumb-phalanx-distal",
@@ -126,34 +128,9 @@ enum BoneNames {
   "pinky-finger-phalanx-distal--pinky-finger-tip",
 }
 
-type HandBoneArr = [
-  "wrist--thumb-metacarpal",
-  "thumb-metacarpal--thumb-phalanx-proximal",
-  "thumb-phalanx-proximal--thumb-phalanx-distal",
-  "thumb-phalanx-distal--thumb-tip",
-  "wrist--index-finger-metacarpal",
-  "index-finger-metacarpal--index-finger-phalanx-proximal",
-  "index-finger-phalanx-proximal--index-finger-phalanx-intermediate",
-  "index-finger-phalanx-intermediate--index-finger-phalanx-distal",
-  "index-finger-phalanx-distal--index-finger-tip",
-  "wrist--middle-finger-metacarpal",
-  "middle-finger-metacarpal--middle-finger-phalanx-proximal",
-  "middle-finger-phalanx-proximal--middle-finger-phalanx-intermediate",
-  "middle-finger-phalanx-intermediate--middle-finger-phalanx-distal",
-  "middle-finger-phalanx-distal--middle-finger-tip",
-  "wrist--ring-finger-metacarpal",
-  "ring-finger-metacarpal--ring-finger-phalanx-proximal",
-  "ring-finger-phalanx-proximal--ring-finger-phalanx-intermediate",
-  "ring-finger-phalanx-intermediate--ring-finger-phalanx-distal",
-  "ring-finger-phalanx-distal--ring-finger-tip",
-  "wrist--pinky-finger-metacarpal",
-  "pinky-finger-metacarpal--pinky-finger-phalanx-proximal",
-  "pinky-finger-phalanx-proximal--pinky-finger-phalanx-intermediate",
-  "pinky-finger-phalanx-intermediate--pinky-finger-phalanx-distal",
-  "pinky-finger-phalanx-distal--pinky-finger-tip",
-];
+export type HandBoneNames = keyof typeof HandBoneNamesEnum;
 
-const boneNames: HandBoneArr = [
+const boneNames: HandBoneNames[] = [
   "wrist--thumb-metacarpal",
   "thumb-metacarpal--thumb-phalanx-proximal",
   "thumb-phalanx-proximal--thumb-phalanx-distal",
@@ -282,6 +259,7 @@ export interface BoneInfo {
   refs: {
     trueBoneRef: React.RefObject<RapierRigidBody>;
     kinematicBoneRef: React.RefObject<RapierRigidBody>;
+    trueBoneColliderRef?: React.RefObject<RapierCollider>;
   };
   boxArgs: {
     width: number;
@@ -292,17 +270,31 @@ export interface BoneInfo {
   attachedRapierJoints: AttachedRapierJoints;
 }
 
-type Fingers = "thumb" | "index" | "middle" | "ring" | "pinky";
+export type FingerNames = "thumb" | "index" | "middle" | "ring" | "pinky";
 
 interface CompleteFinger {
   bones: BoneInfo[];
-  rigidBodyRefs: {
+  // fingerRigidBody: React.RefObject<RapierRigidBody>;
+  fingerRefs: {
+    trueFinger: React.RefObject<RapierRigidBody>;
+    kinematicFinger: React.RefObject<RapierRigidBody>;
+  };
+  boneRefs: {
     trueBoneRef: React.RefObject<RapierRigidBody>;
     kinematicBoneRef: React.RefObject<RapierRigidBody>;
   };
 }
 
-export type CompleteFingerBones = Record<Fingers, CompleteFinger>;
+export const fingerOrder: FingerNames[] = [
+  "thumb",
+  "index",
+  "middle",
+  "ring",
+  "pinky",
+];
+
+// export type CompleteFingerBones = Record<Fingers, CompleteFinger>;
+export type CompleteFingerBones = [FingerNames, CompleteFinger][];
 
 export interface TrueHandClassProps {
   handedness: XRHandedness;
@@ -315,7 +307,7 @@ export interface TrueHandClassProps {
   rapier: World;
   initHand: () => void;
   updateBone: (name: HandBoneNames, bone: BoneInfo) => void;
-  updateBonesOnFrame: (
+  updateHandOnFrame: (
     hand: XRHand,
     frame: XRFrame,
     referenceSpace: XRReferenceSpace,
@@ -353,43 +345,78 @@ export default class TrueHand {
     this.kinematicJoints = [];
     this.bones = [];
     this.completeFingers = [];
-    this.completeFingerBones = {
-      thumb: {
-        bones: [],
-        rigidBodyRefs: {
-          trueBoneRef: React.createRef<RapierRigidBody>(),
-          kinematicBoneRef: React.createRef<RapierRigidBody>(),
+    this.completeFingerBones = [
+      [
+        "thumb",
+        {
+          bones: [],
+          boneRefs: {
+            trueBoneRef: React.createRef<RapierRigidBody>(),
+            kinematicBoneRef: React.createRef<RapierRigidBody>(),
+          },
+          fingerRefs: {
+            trueFinger: React.createRef<RapierRigidBody>(),
+            kinematicFinger: React.createRef<RapierRigidBody>(),
+          },
         },
-      },
-      index: {
-        bones: [],
-        rigidBodyRefs: {
-          trueBoneRef: React.createRef<RapierRigidBody>(),
-          kinematicBoneRef: React.createRef<RapierRigidBody>(),
+      ],
+      [
+        "index",
+        {
+          bones: [],
+          boneRefs: {
+            trueBoneRef: React.createRef<RapierRigidBody>(),
+            kinematicBoneRef: React.createRef<RapierRigidBody>(),
+          },
+          fingerRefs: {
+            trueFinger: React.createRef<RapierRigidBody>(),
+            kinematicFinger: React.createRef<RapierRigidBody>(),
+          },
         },
-      },
-      middle: {
-        bones: [],
-        rigidBodyRefs: {
-          trueBoneRef: React.createRef<RapierRigidBody>(),
-          kinematicBoneRef: React.createRef<RapierRigidBody>(),
+      ],
+      [
+        "middle",
+        {
+          bones: [],
+          boneRefs: {
+            trueBoneRef: React.createRef<RapierRigidBody>(),
+            kinematicBoneRef: React.createRef<RapierRigidBody>(),
+          },
+          fingerRefs: {
+            trueFinger: React.createRef<RapierRigidBody>(),
+            kinematicFinger: React.createRef<RapierRigidBody>(),
+          },
         },
-      },
-      ring: {
-        bones: [],
-        rigidBodyRefs: {
-          trueBoneRef: React.createRef<RapierRigidBody>(),
-          kinematicBoneRef: React.createRef<RapierRigidBody>(),
+      ],
+      [
+        "ring",
+        {
+          bones: [],
+          boneRefs: {
+            trueBoneRef: React.createRef<RapierRigidBody>(),
+            kinematicBoneRef: React.createRef<RapierRigidBody>(),
+          },
+          fingerRefs: {
+            trueFinger: React.createRef<RapierRigidBody>(),
+            kinematicFinger: React.createRef<RapierRigidBody>(),
+          },
         },
-      },
-      pinky: {
-        bones: [],
-        rigidBodyRefs: {
-          trueBoneRef: React.createRef<RapierRigidBody>(),
-          kinematicBoneRef: React.createRef<RapierRigidBody>(),
+      ],
+      [
+        "pinky",
+        {
+          bones: [],
+          boneRefs: {
+            trueBoneRef: React.createRef<RapierRigidBody>(),
+            kinematicBoneRef: React.createRef<RapierRigidBody>(),
+          },
+          fingerRefs: {
+            trueFinger: React.createRef<RapierRigidBody>(),
+            kinematicFinger: React.createRef<RapierRigidBody>(),
+          },
         },
-      },
-    };
+      ],
+    ];
     this.sensorJoints = withSensor
       ? new Map<PalmJointNames, PalmProperties>()
       : undefined;
@@ -413,11 +440,10 @@ export default class TrueHand {
 
     let fingersArr: BoneInfo[] = [];
 
-    boneNames.forEach((boneName) => {
+    boneNames.forEach((boneName, i) => {
       const [startJointName, endJointName] = boneName.split(
         "--",
       )! as XRHandJoint[];
-      // const endJoint = boneName.split("--")[1]! as XRHandJoint;
 
       if (!startJointName || !endJointName) {
         throw new Error(`Invalid bone name: ${boneName}`);
@@ -426,8 +452,6 @@ export default class TrueHand {
       const startJoint: JointInfo = {
         name: startJointName,
         properties: {
-          // position: new RapierVector3(0, 0, 0),
-          // orientation: new RapierQuaternion(0, 0, 0, 0),
           position: new Vector3(),
           orientation: new Quaternion(),
         },
@@ -444,8 +468,6 @@ export default class TrueHand {
       const endJoint: JointInfo = {
         name: endJointName,
         properties: {
-          // position: new RapierVector3(0, 0, 0),
-          // orientation: new RapierQuaternion(0, 0, 0, 0),
           position: new Vector3(),
           orientation: new Quaternion(),
         },
@@ -464,8 +486,6 @@ export default class TrueHand {
         startJoint: existingStartJointInfo ?? startJoint,
         endJoint: existingEndJointInfo ?? endJoint,
         transform: {
-          // position: new RapierVector3(0, 0, 0),
-          // orientation: new RapierQuaternion(0, 0, 0, 0),
           position: new Vector3(),
           orientation: new Quaternion(),
         },
@@ -474,9 +494,11 @@ export default class TrueHand {
           depth: 0.004,
         },
         isTipBone: isTipJointName(endJointName),
+
         refs: {
           trueBoneRef: React.createRef<RapierRigidBody>(),
           kinematicBoneRef: React.createRef<RapierRigidBody>(),
+          trueBoneColliderRef: React.createRef<RapierCollider>(),
         },
         attachedRapierJoints: {
           spring: undefined,
@@ -495,31 +517,16 @@ export default class TrueHand {
       }
     });
 
-    jointNames.forEach((jointName) => {
-      const joint = this.xrJoints.get(jointName);
-
-      if (!joint) {
-        throw new Error(`Joint ${jointName} not found`);
-      }
-
-      this.kinematicJoints.push({
-        name: jointName,
-        rigidBody: React.createRef<RapierRigidBody>(),
-        transform: {
-          position: new Vector3(),
-          orientation: new Quaternion(),
-        },
-        isTipJoint: joint.isTipJoint,
-      });
+    // Set the completeFingerBones
+    this.completeFingers.forEach((fingerBones, i) => {
+      this.completeFingerBones[i]![1].bones = fingerBones;
     });
 
-    this.intializedHand = true;
-    this.visible = true;
-
-    this.notifyUpdate();
+    this.setInitializedHand(true);
+    this.setVisibility(true);
   }
 
-  updateBonesOnFrame(
+  updateHandOnFrame(
     hand: XRHand,
     frame: XRFrame,
     referenceSpace: XRReferenceSpace,
@@ -529,11 +536,11 @@ export default class TrueHand {
     },
   ) {
     if (!this.visible) {
-      console.log("updateBonesOnFrame - Hand not visible");
+      console.log("updateHandOnFrame - Hand not visible");
       return;
     }
     if (!this.intializedHand) {
-      console.log("updateBonesOnFrame - Hand not initialized, init now");
+      console.log("updateHandOnFrame - Hand not initialized, init now");
       this.initHand();
       return;
     }
@@ -596,97 +603,123 @@ export default class TrueHand {
         startJointPose.transform.orientation,
       );
 
-      // if (this.sensorJoints && isPalmJointName(jointSpace.jointName)) {
-      //   this.updateSensor(
-      //     jointSpace.jointName,
-      //     startJointPose.transform.position,
-      //     startJointPose.transform.orientation,
-      //   );
-      // }
+      const jointIndex = JointNamesEnum[jointSpace.jointName];
+      const kinematicJoint = this.kinematicJoints[jointIndex];
+
+      if (kinematicJoint) {
+        this.updateKinematicJointProperties(
+          kinematicJoint,
+          startJointPose.transform.position,
+          startJointPose.transform.orientation,
+        );
+
+        // kinematicJoint.transform.position.set(
+        //   startJointPose.transform.position.x,
+        //   startJointPose.transform.position.y,
+        //   startJointPose.transform.position.z,
+        // );
+        // kinematicJoint.transform.orientation.set(
+        //   startJointPose.transform.orientation.x,
+        //   startJointPose.transform.orientation.y,
+        //   startJointPose.transform.orientation.z,
+        //   startJointPose.transform.orientation.w,
+        // );
+      } else {
+        console.log(
+          `Kinematic joint for ${jointSpace.jointName} not found in this.kinematicJoints`,
+        );
+      }
     }
 
+    console.log("this.xrJoints", this.xrJoints);
+
     if (options.updateRapier) {
+      console.log("updateHandOnFrame - Updating bones now");
       this.updateRapierBones();
-      this.notifyUpdate();
     }
 
     if (!this.ligamentsCreated) {
-      console.log("updateBonesOnFrame - Creating ligaments now");
+      console.log("updateHandOnFrame - Creating ligaments now");
       this.createBoneLinks();
-      this.notifyUpdate();
-      // this.createSpringLigaments();
-      // this.notifyUpdate();
     }
 
     if (!this.handsLinked) {
-      console.log("updateBonesOnFrame - Linking bones now");
+      console.log("updateHandOnFrame - Linking bones now");
       this.synchronizeHands();
-      this.notifyUpdate();
+      // this.notifyUpdate();
     }
 
-    if (options.updateSensor) {
-      this.updateSensorBones();
-      this.notifyUpdate();
-    }
+    // if (options.updateRapier) {
+    //   this.updateFingers();
+    //   // this.notifyUpdate();
+    // }
+    // if (!this.ligamentsCreated) {
+    //   console.log("updateHandOnFrame - Creating ligaments now");
+    //   this.linkFingersToWrist();
+    // }
 
-    // this.notifyUpdate();
+    // if (!this.handsLinked) {
+    //   console.log("updateHandOnFrame - Linking bones now");
+    //   // this.synchronizeHands();
+    //   // this.notifyUpdate();
+    // }
+
+    // if (options.updateSensor) {
+    //   this.updateSensorBones();
+    //   this.notifyUpdate();
+    // }
+
+    this.notifyUpdate();
   }
 
-  private createCompleteFingers() {
-    let colliderDesc1: RAPIER.Collider;
-    let colliderDesc2: RAPIER.ColliderDesc;
-    let colliderDesc3: RAPIER.ColliderDesc;
-    let colliderDesc4: RAPIER.ColliderDesc;
-    let colliderDesc5: RAPIER.ColliderDesc;
+  private updateRapierBones() {
+    this.bones.forEach((bone) => {
+      const startJoint = bone.startJoint;
+      const endJoint = bone.endJoint;
 
-    let collider1: RAPIER.Collider;
-    let collider2: RAPIER.Collider;
-    let collider3: RAPIER.Collider;
-    let collider4: RAPIER.Collider;
-    let collider5: RAPIER.Collider;
+      const startJointPosition = startJoint.properties.position;
+      const endJointPosition = endJoint.properties.position;
 
-    let rigidBodyDesc: RAPIER.RigidBodyDesc;
-    let rigidBody: RAPIER.RigidBody;
+      if (!bone.boxArgs.height) {
+        bone.boxArgs.height = this.calculateHeightForBone(
+          startJoint.properties.position,
+          endJoint.properties.position,
+        );
+      }
 
-    const fingerOrder = [
-      "thumb",
-      "index-finger",
-      "middle-finger",
-      "ring-finger",
-      "pinky-finger",
-    ];
+      bone.transform.position
+        .copy(startJointPosition)
+        .lerpVectors(startJointPosition, endJointPosition, 0.5);
 
-    this.completeFingers.forEach((fingerBones, i) => {
-      rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
-        .setCanSleep(false)
-        .setGravityScale(0.0)
-        .setAdditionalSolverIterations(5)
-        .setCcdEnabled(true);
+      _direction.copy(startJointPosition).sub(endJointPosition).normalize();
 
-      rigidBody = this.rapierWorld.createRigidBody(rigidBodyDesc);
+      const vectorIsCorrect =
+        _vector.x === 0 && _vector.y === -1 && _vector.z === 0;
 
-      fingerBones.map((bone, i, arr) => {
-        switch (i) {
-          case 0: {
-            const colliderDesc = RAPIER.ColliderDesc.cylinder(
-              bone.boxArgs.width / 2,
-              bone.boxArgs.width / 2,
-            )
-              .setFriction(1.0)
-              .setRestitution(0.0)
-              .setDensity(5);
+      bone.transform.orientation.setFromUnitVectors(
+        vectorIsCorrect ? _vector : _vector.set(0, -1, 0),
+        _direction,
+      );
 
-            collider1 = this.rapierWorld.createCollider(
-              colliderDesc,
-              rigidBody,
-            );
+      // Update Collider position
 
-            break;
-          }
-        }
-      });
+      // if (bone.refs.trueBoneColliderRef) {
+      //   bone.refs.trueBoneColliderRef.current?.setTranslationWrtParent(
+      //     bone.transform.position,
+      //   );
 
-      // rigidBody = this.rapierWorld.createRigidBody(rigidBodyDesc);
+      //   bone.refs.trueBoneColliderRef.current?.setRotationWrtParent(
+      //     bone.transform.orientation,
+      //   );
+      // }
+
+      // Update bone transform
+      bone.refs.kinematicBoneRef.current?.setNextKinematicTranslation(
+        bone.transform.position,
+      );
+      bone.refs.kinematicBoneRef.current?.setNextKinematicRotation(
+        bone.transform.orientation,
+      );
     });
   }
 
@@ -735,6 +768,10 @@ export default class TrueHand {
           },
         );
 
+        rapierJoint.stiffness = 0.0;
+        rapierJoint.damping = 0.0;
+        // rapierJoint.limitsEnabled = true;
+        // rapierJoint.limits = []
         const joint = this.rapierWorld.createImpulseJoint(
           rapierJoint,
           this.wrist!,
@@ -794,6 +831,8 @@ export default class TrueHand {
             },
           );
 
+          jointData.stiffness = 0.0;
+          jointData.damping = 0.0;
           // const jointData = RAPIER.JointData.spring(
           //   0,
           //   1.0e6,
@@ -843,6 +882,9 @@ export default class TrueHand {
               z: 0,
             },
           );
+
+          jointData.stiffness = 0.0;
+          jointData.damping = 0.0;
           // const jointData = RAPIER.JointData.spring(
           //   0,
           //   1.0e6,
@@ -894,6 +936,9 @@ export default class TrueHand {
               z: 0,
             },
           );
+
+          jointData.stiffness = 0.0;
+          jointData.damping = 0.0;
           // const jointData = RAPIER.JointData.spring(
           //   0,
           //   1.0e6,
@@ -1230,43 +1275,56 @@ export default class TrueHand {
     complete && this.notifyUpdate();
   }
 
-  private updateRapierBones() {
-    this.bones.forEach((bone) => {
-      const startJoint = bone.startJoint;
-      const endJoint = bone.endJoint;
+  private linkFingersToWrist() {
+    // const wristJoint = wrist.properties.position;
 
-      const startJointPosition = startJoint.properties.position;
-      const endJointPosition = endJoint.properties.position;
+    let complete = true;
 
-      if (!bone.boxArgs.height) {
-        bone.boxArgs.height = this.calculateHeightForBone(
-          startJoint.properties.position,
-          endJoint.properties.position,
-        );
+    this.completeFingerBones.forEach(([_, fingerBones], i) => {
+      const fingerRigidBody = fingerBones.fingerRefs.kinematicFinger.current;
+
+      let yAnchor = 0;
+
+      fingerBones.bones.forEach((bone) => {
+        if (
+          bone.name.includes("tip") ||
+          bone.name.includes("distal") ||
+          bone.name.includes("intermediate")
+        )
+          return;
+
+        yAnchor -= bone.boxArgs.height!;
+      });
+
+      if (!fingerRigidBody) {
+        console.log("Finger rigid body not found");
+        complete = false;
+        return;
+        // throw new Error("Finger rigid body not found");
       }
 
-      bone.transform.position
-        .copy(startJointPosition)
-        .lerpVectors(startJointPosition, endJointPosition, 0.5);
-
-      _direction.copy(startJointPosition).sub(endJointPosition).normalize();
-
-      const vectorIsCorrect =
-        _vector.x === 0 && _vector.y === -1 && _vector.z === 0;
-
-      bone.transform.orientation.setFromUnitVectors(
-        vectorIsCorrect ? _vector : _vector.set(0, -1, 0),
-        _direction,
+      const jointData = RAPIER.JointData.spherical(
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
+        {
+          x: 0,
+          y: yAnchor,
+          z: 0,
+        },
       );
 
-      // Update bone transform
-      bone.refs.kinematicBoneRef.current?.setNextKinematicTranslation(
-        bone.transform.position,
-      );
-      bone.refs.kinematicBoneRef.current?.setNextKinematicRotation(
-        bone.transform.orientation,
+      const joint = this.rapierWorld.createImpulseJoint(
+        jointData,
+        this.wrist!,
+        fingerRigidBody,
+        true,
       );
     });
+
+    this.ligamentsCreated = complete;
   }
 
   private updateJointProperties(
@@ -1293,6 +1351,23 @@ export default class TrueHand {
     joint.properties.orientation.y = orientation.y;
     joint.properties.orientation.z = orientation.z;
     joint.properties.orientation.w = orientation.w;
+  }
+  private updateKinematicJointProperties(
+    joint: KinematicJointInfo,
+    position: Vector3Object,
+    orientation: Vector4Object,
+  ) {
+    joint.transform.position.set(position.x, position.y, position.z);
+
+    joint.transform.orientation.set(
+      orientation.x,
+      orientation.y,
+      orientation.z,
+      orientation.w,
+    );
+
+    joint.rigidBody.current?.setNextKinematicTranslation(position);
+    joint.rigidBody.current?.setNextKinematicRotation(orientation);
   }
 
   private updateSensorBones() {
@@ -1325,133 +1400,439 @@ export default class TrueHand {
     // palmProperties.joints.
   }
 
+  updateKinematicHandJoint() {
+    // Sets a RigidBody at each webxr joint for the KinematicHand
+
+    this.xrJoints.forEach((jointInfo, jointName) => {
+      const jointIndex = JointNamesEnum[jointName];
+      const kinematicJoint = this.kinematicJoints[jointIndex];
+
+      if (!kinematicJoint) {
+        throw new Error(`Joint ${jointName} not found`);
+      }
+
+      // this.updateKinematicJointProperties(
+      //   kinematicJoint,
+      //   jointSpace.jointName,
+      //   jointPose.transform.position,
+      //   jointPose.transform.orientation,
+      // );
+    });
+
+    // for (const jointSpace of hand.values()) {
+    //   const jointIndex = JointNamesEnum[jointSpace.jointName];
+    //   const kinematicJoint = this.kinematicJoints[jointIndex];
+
+    //   if (!kinematicJoint) {
+    //     throw new Error(`Joint ${jointSpace.jointName} not found`);
+    //   }
+
+    //   const jointPose = frame.getJointPose?.(jointSpace, referenceSpace);
+
+    //   if (!jointPose) {
+    //     console.log(
+    //       `Joint pose for ${jointSpace.jointName} not found in frame.getJointPose`,
+    //     );
+    //     continue;
+    //   }
+
+    //   this.updateKinematicJointProperties(
+    //     kinematicJoint,
+    //     jointSpace.jointName,
+    //     jointPose.transform.position,
+    //     jointPose.transform.orientation,
+    //   );
+
+    //   // this.updateJointProperties(
+    //   //   jointSpace.jointName,
+    //   //   startJointPose.transform.position,
+    //   //   startJointPose.transform.orientation,
+    //   // );
+
+    //   // if (this.sensorJoints && isPalmJointName(jointSpace.jointName)) {
+    //   //   this.updateSensor(
+    //   //     jointSpace.jointName,
+    //   //     startJointPose.transform.position,
+    //   //     startJointPose.transform.orientation,
+    //   //   );
+    //   // }
+    // }
+    // this.notifyUpdate();
+  }
+
+  private createCompleteFingers() {
+    // let rigidBodyDesc: RAPIER.RigidBodyDesc;
+    // let rigidBody: RAPIER.RigidBody;
+
+    console.log("-----INSIDE createCompleteFingers-----");
+    console.log("this.completeFingerBones", this.completeFingerBones);
+
+    this.completeFingerBones.forEach(([_, fingerBones], i) => {
+      const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+        .setCanSleep(false)
+        .setGravityScale(0.0)
+        .setAdditionalSolverIterations(5)
+        .setCcdEnabled(true);
+
+      const rigidBody = this.rapierWorld.createRigidBody(rigidBodyDesc);
+
+      // fingerBones.fingerRigidBody = rigidBody;
+
+      fingerBones.bones.forEach((bone, i, arr) => {
+        switch (i) {
+          case 0: {
+            const colliderDesc = RAPIER.ColliderDesc.cylinder(
+              bone.boxArgs.width / 2,
+              bone.boxArgs.width / 2,
+            )
+              .setFriction(1.0)
+              .setRestitution(0.0)
+              .setDensity(5);
+
+            const collider = this.rapierWorld.createCollider(
+              colliderDesc,
+              rigidBody,
+            );
+
+            // bone.colliderRef = React.createRef<RapierCollider>();
+            // bone.refs.trueBoneColliderRef = collider;
+
+            break;
+          }
+
+          case 1: {
+            const colliderDesc = RAPIER.ColliderDesc.cylinder(
+              bone.boxArgs.width / 2,
+              bone.boxArgs.width / 2,
+            )
+              .setFriction(1.0)
+              .setRestitution(0.0)
+              .setDensity(5);
+
+            const collider = this.rapierWorld.createCollider(
+              colliderDesc,
+              rigidBody,
+            );
+
+            // bone.collider = collider;
+
+            break;
+          }
+
+          case 2: {
+            const colliderDesc = RAPIER.ColliderDesc.cylinder(
+              bone.boxArgs.width / 2,
+              bone.boxArgs.width / 2,
+            )
+              .setFriction(1.0)
+              .setRestitution(0.0)
+              .setDensity(5);
+
+            const collider = this.rapierWorld.createCollider(
+              colliderDesc,
+              rigidBody,
+            );
+
+            // bone.collider = collider;
+
+            break;
+          }
+
+          case 3: {
+            const colliderDesc = RAPIER.ColliderDesc.cylinder(
+              bone.boxArgs.width / 2,
+              bone.boxArgs.width / 2,
+            )
+              .setFriction(1.0)
+              .setRestitution(0.0)
+              .setDensity(5);
+
+            const collider = this.rapierWorld.createCollider(
+              colliderDesc,
+              rigidBody,
+            );
+
+            // bone.collider = collider;
+
+            break;
+          }
+
+          case 4: {
+            const colliderDesc = RAPIER.ColliderDesc.cylinder(
+              bone.boxArgs.width / 2,
+              bone.boxArgs.width / 2,
+            )
+              .setFriction(1.0)
+              .setRestitution(0.0)
+              .setDensity(5);
+
+            const collider = this.rapierWorld.createCollider(
+              colliderDesc,
+              rigidBody,
+            );
+
+            // bone.collider = collider;
+
+            break;
+          }
+        }
+      });
+    });
+
+    // fingerOrder.forEach((fingerName, i) => {
+    //   const [name, fingerBones] = this.completeFingerBones[i]!;
+
+    //   const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+    //     .setCanSleep(false)
+    //     .setGravityScale(0.0)
+    //     .setAdditionalSolverIterations(5)
+    //     .setCcdEnabled(true);
+
+    //   const rigidBody = this.rapierWorld.createRigidBody(rigidBodyDesc);
+
+    //   // fingerBones.fingerRigidBody = rigidBody;
+
+    //   fingerBones.bones.forEach((bone, i, arr) => {
+    //     switch (i) {
+    //       case 0: {
+    //         const colliderDesc = RAPIER.ColliderDesc.cylinder(
+    //           bone.boxArgs.width / 2,
+    //           bone.boxArgs.width / 2,
+    //         )
+    //           .setFriction(1.0)
+    //           .setRestitution(0.0)
+    //           .setDensity(5);
+
+    //         const collider = this.rapierWorld.createCollider(
+    //           colliderDesc,
+    //           rigidBody,
+    //         );
+
+    //         // bone.colliderRef = React.createRef<RapierCollider>();
+    //         // bone.refs.trueBoneColliderRef = collider;
+
+    //         break;
+    //       }
+
+    //       case 1: {
+    //         const colliderDesc = RAPIER.ColliderDesc.cylinder(
+    //           bone.boxArgs.width / 2,
+    //           bone.boxArgs.width / 2,
+    //         )
+    //           .setFriction(1.0)
+    //           .setRestitution(0.0)
+    //           .setDensity(5);
+
+    //         const collider = this.rapierWorld.createCollider(
+    //           colliderDesc,
+    //           rigidBody,
+    //         );
+
+    //         // bone.collider = collider;
+
+    //         break;
+    //       }
+
+    //       case 2: {
+    //         const colliderDesc = RAPIER.ColliderDesc.cylinder(
+    //           bone.boxArgs.width / 2,
+    //           bone.boxArgs.width / 2,
+    //         )
+    //           .setFriction(1.0)
+    //           .setRestitution(0.0)
+    //           .setDensity(5);
+
+    //         const collider = this.rapierWorld.createCollider(
+    //           colliderDesc,
+    //           rigidBody,
+    //         );
+
+    //         // bone.collider = collider;
+
+    //         break;
+    //       }
+
+    //       case 3: {
+    //         const colliderDesc = RAPIER.ColliderDesc.cylinder(
+    //           bone.boxArgs.width / 2,
+    //           bone.boxArgs.width / 2,
+    //         )
+    //           .setFriction(1.0)
+    //           .setRestitution(0.0)
+    //           .setDensity(5);
+
+    //         const collider = this.rapierWorld.createCollider(
+    //           colliderDesc,
+    //           rigidBody,
+    //         );
+
+    //         // bone.collider = collider;
+
+    //         break;
+    //       }
+
+    //       case 4: {
+    //         const colliderDesc = RAPIER.ColliderDesc.cylinder(
+    //           bone.boxArgs.width / 2,
+    //           bone.boxArgs.width / 2,
+    //         )
+    //           .setFriction(1.0)
+    //           .setRestitution(0.0)
+    //           .setDensity(5);
+
+    //         const collider = this.rapierWorld.createCollider(
+    //           colliderDesc,
+    //           rigidBody,
+    //         );
+
+    //         // bone.collider = collider;
+
+    //         break;
+    //       }
+    //     }
+    //   });
+    // });
+
+    // this.completeFingers.forEach((fingerBones, i) => {
+    //   rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+    //     .setCanSleep(false)
+    //     .setGravityScale(0.0)
+    //     .setAdditionalSolverIterations(5)
+    //     .setCcdEnabled(true);
+
+    //   rigidBody = this.rapierWorld.createRigidBody(rigidBodyDesc);
+
+    //   fingerBones.map((bone, i, arr) => {
+    //     switch (i) {
+    //       case 0: {
+    //         const colliderDesc = RAPIER.ColliderDesc.cylinder(
+    //           bone.boxArgs.width / 2,
+    //           bone.boxArgs.width / 2,
+    //         )
+    //           .setFriction(1.0)
+    //           .setRestitution(0.0)
+    //           .setDensity(5);
+
+    //         collider1 = this.rapierWorld.createCollider(
+    //           colliderDesc,
+    //           rigidBody,
+    //         );
+
+    //         break;
+    //       }
+    //     }
+    //   });
+
+    //   // rigidBody = this.rapierWorld.createRigidBody(rigidBodyDesc);
+    // });
+  }
+  private updateFingers() {
+    console.log("-----INSIDE updateFingers-----");
+    console.log("this.completeFingerBones", this.completeFingerBones);
+
+    this.completeFingerBones.forEach(([_, fingerBones], i) => {
+      // Calculate the average position of all bones in the finger
+      const { averagePosition, averageOrientation } = fingerBones.bones.reduce(
+        (acc, bone) => {
+          const startJointPosition = bone.startJoint.properties.position;
+          const endJointPosition = bone.endJoint.properties.position;
+          const boneCenter = startJointPosition
+            .clone()
+            .lerp(endJointPosition, 0.5);
+
+          // const newP = acc.averagePosition.add(boneCenter);
+
+          // _direction.copy(startJointPosition).sub(endJointPosition).normalize();
+
+          // const vectorIsCorrect =
+          //   _vector.x === 0 && _vector.y === -1 && _vector.z === 0;
+
+          // // _quaternion.setFromUnitVectors(
+          // //   vectorIsCorrect ? _vector : _vector.set(0, -1, 0),
+          // //   _direction,
+          // // );
+
+          // bone.transform.position
+          //   .copy(startJointPosition)
+          //   .lerpVectors(startJointPosition, endJointPosition, 0.5);
+
+          // bone.transform.orientation.setFromUnitVectors(
+          //   vectorIsCorrect ? _vector : _vector.set(0, -1, 0),
+          //   _direction,
+          // );
+
+          // bone.refs.trueBoneColliderRef!.current?.setTranslationWrtParent({
+          //   x: bone.transform.position.x,
+          //   y: bone.transform.position.y,
+          //   z: bone.transform.position.z,
+          // });
+
+          // bone.refs.trueBoneColliderRef!.current?.setRotationWrtParent({
+          //   x: bone.transform.orientation.x,
+          //   y: bone.transform.orientation.y,
+          //   z: bone.transform.orientation.z,
+          //   w: bone.transform.orientation.w,
+          // });
+
+          // bone.refs.trueBoneColliderRef!.current?.setTranslation({
+          //   x: bone.transform.position.x,
+          //   y: bone.transform.position.y,
+          //   z: bone.transform.position.z,
+          // });
+
+          // bone.refs.trueBoneColliderRef!.current?.setRotation({
+          //   x: bone.transform.orientation.x,
+          //   y: bone.transform.orientation.y,
+          //   z: bone.transform.orientation.z,
+          //   w: bone.transform.orientation.w,
+          // });
+          // Setting the orientation of the bone
+
+          const shouldSetOrientation =
+            bone.name.includes("proximal") && bone.name.includes("phalanx");
+
+          return {
+            averagePosition: acc.averagePosition.add(boneCenter),
+            averageOrientation: shouldSetOrientation
+              ? bone.transform.orientation
+              : acc.averageOrientation,
+          };
+
+          // return acc.add(boneCenter);
+        },
+        {
+          averagePosition: _position.set(0, 0, 0),
+          averageOrientation: _quaternion.set(0, 0, 0, 1),
+        },
+      );
+
+      averagePosition.divideScalar(fingerBones.bones.length);
+
+      // using the metacarpal--phalanx-proximal bone as the representative bone
+      const representativeOrientation =
+        fingerBones.bones[1]!.transform.orientation;
+
+      // Setting the KinematicFinger Position/Orientation
+      const fingerRigidBody = fingerBones.fingerRefs.kinematicFinger.current;
+      if (fingerRigidBody) {
+        console.log("averagePosition", averagePosition);
+        console.log("representativeOrientation", representativeOrientation);
+        console.log(
+          "fingerBones.bones[1]!.transform.position",
+          fingerBones.bones[1]!.transform.position,
+        );
+
+        // fingerRigidBody.setNextKinematicTranslation(averagePosition);
+        // fingerRigidBody.setNextKinematicRotation(representativeOrientation);
+      }
+    });
+  }
+
   private calculateHeightForBone(
     jointOne: THREE.Vector3,
     jointTwo: THREE.Vector3,
   ) {
-    console.log("height: ", jointOne.distanceTo(jointTwo));
     return jointOne.distanceTo(jointTwo);
-  }
-
-  private updateKinematicJointProperties(
-    joint: KinematicJointInfo,
-    jointName: XRHandJoint,
-    position: Vector3Object,
-    orientation: Vector4Object,
-  ) {
-    // const joint = this.kinematicJoints.get(jointName);
-
-    if (!joint) {
-      throw new Error(`Joint ${jointName} not found`);
-    }
-    joint.rigidBody.current?.setNextKinematicTranslation(
-      joint.transform.position,
-    );
-    joint.rigidBody.current?.setNextKinematicRotation(orientation);
-  }
-
-  updateKinematicHand(
-    hand: XRHand,
-    frame: XRFrame,
-    referenceSpace: XRReferenceSpace,
-  ) {
-    // Sets a RigidBody at each webxr joint for the KinematicHand
-
-    if (!this.visible) {
-      console.log("updateBonesOnFrame - Hand not visible");
-      return;
-    }
-    if (!this.intializedHand) {
-      console.log("updateBonesOnFrame - Hand not initialized, init now");
-      this.initHand();
-      return;
-    }
-
-    for (const jointSpace of hand.values()) {
-      // const joint = this.kinematicJoints.get(jointSpace.jointName);
-
-      const jointIndex = JointNamesEnum[jointSpace.jointName];
-
-      // if (!joint) {
-      //   console.log(
-      //     `Joint ${jointSpace.jointName} not found in this.xrJoints, setting now`,
-      //   );
-
-      //   // const jointIndex = BoneNames[jointSpace.jointName];
-
-      // const rbDesc = RAPIER.RigidBodyDesc.kinematicPositionBased();
-
-      // const rb = this.rapierWorld.createRigidBody(rbDesc);
-
-      //   this.kinematicJoints.set(jointSpace.jointName, {
-      //     name: jointSpace.jointName,
-      //     rigidBody: React.createRef<RapierRigidBody>(),
-      //     isTipJoint: isTipJointName(jointSpace.jointName),
-      //   });
-      //   continue;
-      // }
-
-      const kinematicJoint = this.kinematicJoints[jointIndex];
-
-      if (!kinematicJoint) {
-        throw new Error(`Joint ${jointSpace.jointName} not found`);
-      }
-
-      const startJointPose = frame.getJointPose?.(jointSpace, referenceSpace);
-
-      if (!startJointPose) {
-        console.log(
-          `Joint pose for ${jointSpace.jointName} not found in frame.getJointPose`,
-        );
-        continue;
-      }
-
-      kinematicJoint.transform.position.setX(
-        startJointPose.transform.position.x,
-      );
-      kinematicJoint.transform.position.setY(
-        startJointPose.transform.position.y,
-      );
-      kinematicJoint.transform.position.setZ(
-        startJointPose.transform.position.z,
-      );
-
-      // kinematicJoint.transform.orientation.set(startJointPose.transform.orientation.x);
-      // kinematicJoint.transform.orientation.setY(startJointPose.transform.orientation.y);
-      // kinematicJoint.transform.orientation.setZ(startJointPose.transform.orientation.z);
-      // kinematicJoint.transform.orientation.setW(startJointPose.transform.orientation.w);
-
-      // kinematicJoint.transform.orientation.copy(
-      //   startJointPose.transform.orientation,
-      // );
-
-      this.updateKinematicJointProperties(
-        kinematicJoint,
-        jointSpace.jointName,
-        startJointPose.transform.position,
-        startJointPose.transform.orientation,
-      );
-
-      console.log(
-        "kinematicJoint.rigidBody.current?.translation()",
-        kinematicJoint.rigidBody.current?.translation(),
-      );
-
-      // this.updateJointProperties(
-      //   jointSpace.jointName,
-      //   startJointPose.transform.position,
-      //   startJointPose.transform.orientation,
-      // );
-
-      // if (this.sensorJoints && isPalmJointName(jointSpace.jointName)) {
-      //   this.updateSensor(
-      //     jointSpace.jointName,
-      //     startJointPose.transform.position,
-      //     startJointPose.transform.orientation,
-      //   );
-      // }
-    }
-    this.notifyUpdate();
   }
 
   public setUpdateCallback(callback: () => void): void {

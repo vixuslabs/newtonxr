@@ -57,21 +57,21 @@ export const HandBone = forwardRef<RapierRigidBody, BoneProps>(
     },
     ref,
   ) => {
-    const boneRef = useForwardedRef(ref);
+    const visibleBoneRef = useForwardedRef(ref);
 
-    const BridgeBone = useBridgeBone(boneRef, handedness, name);
+    const BridgeBone = useBridgeBone(visibleBoneRef, handedness, name);
 
     console.log("\n------HandBone----------");
 
     return (
       <>
         <RigidBody
-          ref={boneRef}
+          ref={visibleBoneRef}
           type={rigidBodyType}
           gravityScale={0}
           restitution={0}
           friction={0}
-          colliders={children ? collider : "cuboid"}
+          colliders={collider}
           collisionGroups={interactionGroups([0], [6, 7, 8])}
           onCollisionEnter={({ other }) => {
             // console.log("bone collision enter ", payload);
@@ -82,8 +82,8 @@ export const HandBone = forwardRef<RapierRigidBody, BoneProps>(
             ) {
               console.log("colliding with bridge-hand-bone");
             }
-            if (boneRef) {
-              boneRef.current.lockRotations(true, true);
+            if (visibleBoneRef) {
+              visibleBoneRef.current.lockRotations(true, true);
             }
           }}
           onCollisionExit={({ other }) => {
@@ -96,8 +96,8 @@ export const HandBone = forwardRef<RapierRigidBody, BoneProps>(
               console.log("colliding with bridge-hand-bone");
             }
 
-            if (boneRef) {
-              boneRef.current.lockRotations(false, true);
+            if (visibleBoneRef) {
+              visibleBoneRef.current.lockRotations(false, true);
             }
           }}
           // ccd
