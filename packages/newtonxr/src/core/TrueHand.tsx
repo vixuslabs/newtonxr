@@ -93,33 +93,43 @@ export function TrueHand({
   });
 
   // console.log("\n---------- TrueHand -------------");
-  // console.log("hand.bones: ", hand.bones);
-  // console.log("hand.trueHandBones: ", hand.trueHandBones);
-  // console.log("hand.trueHandJoints: ", hand.trueHandJoints);
-  // console.log(
-  //   "hand.kinematicWrist.current?.translation(): ",
-  //   hand.kinematicWrist.current?.translation(),
-  // );
+  // console.log("hand", hand);
+  // console.log("hand.trueHand: ", hand.trueHand);
+  // console.log("hand.kinematicHand: ", hand.kinematicHand);
   // console.log("---------------------------------\n-");
 
   return (
     <Fragment key={id}>
       {/* KinematicHand Wrist Rigid Body */}
-      <RigidBody
+      {/* <RigidBody
         key="kinematicWrist"
         type="kinematicPosition"
-        ref={hand.kinematicWrist}
+        ref={hand.kinematicHand.joints[0]?.[1].rigidBody}
         colliders={false}
         canSleep={false}
-      >
-        {/* <mesh visible={false}>
-          <boxGeometry args={[0.05, 0.05, 0.05]} />
-          <meshBasicMaterial wireframe color="black" />
-        </mesh> */}
-      </RigidBody>
+      /> */}
+
+      {/* Kinematic Rigid Body Joints */}
+      {hand.kinematicHand.joints.map(([name, jointInfo]) => {
+        return (
+          <RigidBody
+            key={name + "kinematicHandJoint"}
+            ref={jointInfo.rigidBody}
+            type="kinematicPosition"
+            colliders={false}
+            canSleep={false}
+            collisionGroups={interactionGroups([], [])}
+          >
+            <mesh visible={true}>
+              <sphereGeometry args={[0.001]} />
+              <meshBasicMaterial color="black" />
+            </mesh>
+          </RigidBody>
+        );
+      })}
 
       {/* TrueHand Rigid Body Joints */}
-      {hand.trueHandJoints.map(([name, jointInfo]) => {
+      {hand.trueHand.joints.map(([name, jointInfo]) => {
         return (
           <>
             <RigidBody
@@ -128,11 +138,14 @@ export function TrueHand({
               gravityScale={0}
               restitution={0}
               canSleep={false}
+              colliders={"ball"}
+              userData={{ name }}
+              collisionGroups={interactionGroups([], [])}
+              density={5}
               ref={jointInfo.rigidBody}
-              colliders={false}
             >
               <mesh>
-                <sphereGeometry args={[0.001]} />
+                <sphereGeometry args={[hand.trueHandJointRadius]} />
                 <meshBasicMaterial color="red" />
               </mesh>
             </RigidBody>
@@ -141,8 +154,9 @@ export function TrueHand({
       })}
 
       {/* TrueHand Rigid Body Bones */}
-      {hand.trueHandBones.map((bone) => {
+      {hand.trueHand.bones.map((bone) => {
         if (!bone.boxArgs.height) return null;
+
         return (
           <RigidBody
             key={bone.id}
@@ -151,6 +165,7 @@ export function TrueHand({
             canSleep={false}
             colliders={false}
             userData={{ name: bone.name }}
+            // collisionGroups={interactionGroups([], [])}
             collisionGroups={interactionGroups([0], [7, 8])}
             density={5}
             onCollisionEnter={(payload) => {
@@ -165,6 +180,7 @@ export function TrueHand({
             ccd
             {...props}
             ref={bone.refs.trueBoneRef}
+            additionalSolverIterations={5}
           >
             <mesh visible={true}>
               {boneShape === "cylinder" ? (
@@ -179,7 +195,7 @@ export function TrueHand({
 
                   <RoundCylinderCollider
                     args={[bone.boxArgs.height / 2, bone.boxArgs.width / 2, 0]}
-                    friction={1}
+                    friction={4}
                     restitution={0}
                   />
                 </>
@@ -214,112 +230,114 @@ export function TrueHand({
           </RigidBody>
         );
       })}
+
+      {/* Kinematic Rigid Body Bones */}
     </Fragment>
   );
 
-  return (
-    <Fragment key={id}>
-      {hand.bones.map((bone) => {
-        if (!bone.boxArgs.height) return null;
-        return (
-          <Fragment key={bone.id}>
-            {/* Kinematic Bone */}
-            <RigidBody
-              ref={bone.refs.kinematicBoneRef}
-              type="kinematicPosition"
-              colliders={false}
-              canSleep={false}
-              collisionGroups={interactionGroups([], [])}
-            >
-              <mesh visible={false}>
-                <boxGeometry
-                  args={[
-                    bone.boxArgs.width,
-                    bone.boxArgs.height,
-                    bone.boxArgs.depth,
-                  ]}
-                />
-                <meshBasicMaterial wireframe color="black" />
-              </mesh>
-            </RigidBody>
+  // return (
+  //   <Fragment key={id}>
+  //     {hand.bones.map((bone) => {
+  //       if (!bone.boxArgs.height) return null;
+  //       return (
+  //         <Fragment key={bone.id}>
+  //           {/* Kinematic Bone */}
+  //           <RigidBody
+  //             ref={bone.refs.kinematicBoneRef}
+  //             type="kinematicPosition"
+  //             colliders={false}
+  //             canSleep={false}
+  //             collisionGroups={interactionGroups([], [])}
+  //           >
+  //             <mesh visible={false}>
+  //               <boxGeometry
+  //                 args={[
+  //                   bone.boxArgs.width,
+  //                   bone.boxArgs.height,
+  //                   bone.boxArgs.depth,
+  //                 ]}
+  //               />
+  //               <meshBasicMaterial wireframe color="black" />
+  //             </mesh>
+  //           </RigidBody>
 
-            {/* True Bone */}
-            <RigidBody
-              type="dynamic"
-              gravityScale={0}
-              canSleep={false}
-              colliders={false}
-              userData={{ name: bone.name }}
-              collisionGroups={interactionGroups([0], [7, 8])}
-              density={5}
-              onCollisionEnter={(payload) => {
-                const { target } = payload;
-                console.log("bone collision enter ", payload);
-                target.rigidBody?.lockRotations(true, true);
-              }}
-              onCollisionExit={(payload) => {
-                const { target } = payload;
-                target.rigidBody?.lockRotations(false, true);
-              }}
-              ccd
-              {...props}
-              ref={bone.refs.trueBoneRef}
-            >
-              <mesh visible={true}>
-                {boneShape === "cylinder" ? (
-                  <>
-                    <cylinderGeometry
-                      args={[
-                        bone.boxArgs.width / 2,
-                        bone.boxArgs.width / 2,
-                        bone.boxArgs.height,
-                      ]}
-                    />
+  //           {/* True Bone */}
+  //           <RigidBody
+  //             type="dynamic"
+  //             gravityScale={0}
+  //             canSleep={false}
+  //             colliders={false}
+  //             userData={{ name: bone.name }}
+  //             collisionGroups={interactionGroups([0], [7, 8])}
+  //             density={5}
+  //             onCollisionEnter={(payload) => {
+  //               const { target } = payload;
+  //               console.log("bone collision enter ", payload);
+  //               target.rigidBody?.lockRotations(true, true);
+  //             }}
+  //             onCollisionExit={(payload) => {
+  //               const { target } = payload;
+  //               target.rigidBody?.lockRotations(false, true);
+  //             }}
+  //             ccd
+  //             {...props}
+  //             ref={bone.refs.trueBoneRef}
+  //           >
+  //             <mesh visible={true}>
+  //               {boneShape === "cylinder" ? (
+  //                 <>
+  //                   <cylinderGeometry
+  //                     args={[
+  //                       bone.boxArgs.width / 2,
+  //                       bone.boxArgs.width / 2,
+  //                       bone.boxArgs.height,
+  //                     ]}
+  //                   />
 
-                    <RoundCylinderCollider
-                      args={[
-                        bone.boxArgs.height / 2,
-                        bone.boxArgs.width / 2,
-                        0,
-                      ]}
-                      friction={1}
-                      restitution={0}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <boxGeometry
-                      args={[
-                        bone.boxArgs.width,
-                        bone.boxArgs.height,
-                        bone.boxArgs.depth,
-                      ]}
-                    />
+  //                   <RoundCylinderCollider
+  //                     args={[
+  //                       bone.boxArgs.height / 2,
+  //                       bone.boxArgs.width / 2,
+  //                       0,
+  //                     ]}
+  //                     friction={1}
+  //                     restitution={0}
+  //                   />
+  //                 </>
+  //               ) : (
+  //                 <>
+  //                   <boxGeometry
+  //                     args={[
+  //                       bone.boxArgs.width,
+  //                       bone.boxArgs.height,
+  //                       bone.boxArgs.depth,
+  //                     ]}
+  //                   />
 
-                    <CuboidCollider
-                      args={[
-                        bone.boxArgs.width,
-                        bone.boxArgs.height,
-                        bone.boxArgs.depth,
-                      ]}
-                      friction={1}
-                      restitution={0}
-                    />
-                  </>
-                )}
+  //                   <CuboidCollider
+  //                     args={[
+  //                       bone.boxArgs.width,
+  //                       bone.boxArgs.height,
+  //                       bone.boxArgs.depth,
+  //                     ]}
+  //                     friction={1}
+  //                     restitution={0}
+  //                   />
+  //                 </>
+  //               )}
 
-                <meshBasicMaterial
-                  transparent
-                  opacity={bonesVisible ? 0.5 : 0}
-                  color="white"
-                />
-              </mesh>
-            </RigidBody>
-          </Fragment>
-        );
-      })}
-    </Fragment>
-  );
+  //               <meshBasicMaterial
+  //                 transparent
+  //                 opacity={bonesVisible ? 0.5 : 0}
+  //                 color="white"
+  //               />
+  //             </mesh>
+  //           </RigidBody>
+  //         </Fragment>
+  //       );
+  //     })}
+  //   </Fragment>
+  // );
 
   return (
     <Fragment key={id}>
