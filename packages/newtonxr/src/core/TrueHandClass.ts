@@ -355,6 +355,30 @@ export interface KinematicHand {
   bones: BoneInfo[];
 }
 
+type WristToMetacarpalBones =
+  | "wrist--thumb-metacarpal"
+  | "wrist--index-finger-metacarpal"
+  | "wrist--middle-finger-metacarpal"
+  | "wrist--ring-finger-metacarpal"
+  | "wrist--pinky-finger-metacarpal";
+
+type WristBones = Extract<HandBoneNames, WristToMetacarpalBones>;
+
+type WristAttachedRapierJoints = Map<
+  WristBones,
+  React.RefObject<RAPIER.ImpulseJoint>
+>;
+
+export interface Wrist {
+  name: "wrist";
+  transform: JointProperties;
+  rigidBodies: {
+    trueWrist: React.RefObject<RapierRigidBody>;
+    kinematicWrist: React.RefObject<RapierRigidBody>;
+  };
+  attachedRapierJoints: WristAttachedRapierJoints;
+}
+
 export default class Newton {
   handedness: XRHandedness;
   intializedHand: boolean;
@@ -362,7 +386,7 @@ export default class Newton {
   handsLinked: boolean;
   ligamentsCreated: boolean;
   handsBuilt: boolean;
-  // kinematicWrist: React.RefObject<RapierRigidBody>;
+  wrist: Wrist;
   trueHand: TrueHand;
   kinematicHand: KinematicHand;
   completeFingers: BoneInfo[][];
@@ -383,6 +407,18 @@ export default class Newton {
     this.handsBuilt = false;
     // this.kinematicWrist = React.createRef<RapierRigidBody>();
     this.xrJoints = new Map<XRHandJoint, JointInfo>();
+    this.wrist = {
+      name: "wrist",
+      transform: {
+        position: new Vector3(),
+        orientation: new Quaternion(),
+      },
+      rigidBodies: {
+        trueWrist: React.createRef<RapierRigidBody>(),
+        kinematicWrist: React.createRef<RapierRigidBody>(),
+      },
+      attachedRapierJoints: new Map() as WristAttachedRapierJoints,
+    };
     this.kinematicHand = {
       ready: false,
       handsLinked: false,
@@ -663,15 +699,18 @@ export default class Newton {
 
     if (options.updateRapier) {
       // this.updateRapierBones();
-      this.updateKinematicHand(false, true);
+      // this.updateKinematicHand(false, true);
+      this.updateKinematicHand(true, false);
     }
 
     if (!this.handsBuilt) {
       console.log("updateHandOnFrame - Creating ligaments now");
       // this.createBoneLinks();
 
-      this.updateKinematicHand(false, true);
-      this.buildTrueHand();
+      // this.updateKinematicHand(false, true);
+      this.updateKinematicHand(true, false);
+      // this.buildTrueHand();
+      this.buildTrueHandNoJoints();
 
       if (this.kinematicHand.ready && this.trueHand.ready) {
         this.handsBuilt = true;
@@ -681,9 +720,12 @@ export default class Newton {
     if (!this.handsLinked) {
       console.log("updateHandOnFrame - Linking bones now");
       // this.linkWrists();
-      this.synchronizeHands(false, true);
+      // this.synchronizeHands(false, true);
+      this.synchronizeHands(true, false, true);
+      this.updateKinematicHand(true, false);
 
-      if (this.trueHand.handsLinked && this.kinematicHand.handsLinked) {
+      // if (this.trueHand.handsLinked && this.kinematicHand.handsLinked) {
+      if (this.trueHand.handsLinked) {
         this.handsLinked = true;
       }
     }
@@ -698,6 +740,16 @@ export default class Newton {
     updateKinematicJoint = true,
   ) {
     const xrJoint = this.xrJoints.get(jointName);
+
+    if (jointName === "wrist") {
+      this.wrist.transform.position.set(position.x, position.y, position.z);
+      this.wrist.transform.orientation.set(
+        orientation.x,
+        orientation.y,
+        orientation.z,
+        orientation.w,
+      );
+    }
 
     if (xrJoint) {
       xrJoint.transform.position.set(position.x, position.y, position.z);
@@ -735,7 +787,8 @@ export default class Newton {
     let success = true;
 
     if (updateBones)
-      this.kinematicHand.bones.forEach((bone) => {
+      // this.kinematicHand.bones.forEach((bone) => {
+      this.trueHand.bones.forEach((bone) => {
         const startJoint = bone.startJoint;
         const endJoint = bone.endJoint;
 
@@ -811,9 +864,444 @@ export default class Newton {
       }
     }
 
+    if (this.wrist.rigidBodies.kinematicWrist.current) {
+      this.wrist.rigidBodies.kinematicWrist.current.setNextKinematicTranslation(
+        this.wrist.transform.position,
+      );
+      this.wrist.rigidBodies.kinematicWrist.current.setNextKinematicRotation(
+        this.wrist.transform.orientation,
+      );
+    }
+
     if (success) {
       this.kinematicHand.ready = success;
     }
+
+    return success;
+  }
+
+  private buildTrueHandNoJoints(): boolean {
+    let success = true;
+
+    let nextBone: BoneInfo | undefined;
+
+    // for (const bone of this.trueHand.bones) {
+    this.trueHand.bones.forEach((bone, i, arr) => {
+      // if (!success) return;
+
+      if (i === arr.length - 1 && bone.isTipBone) {
+        console.log("Last bone already calculated, skipping");
+        return;
+      }
+
+      nextBone = arr[i + 1];
+
+      if (!nextBone) {
+        console.error("Next bone not found");
+        success = false;
+        return;
+      }
+
+      if (!bone.boxArgs.height) {
+        bone.boxArgs.height = this.calculateHeightForBone(
+          bone.startJoint.transform.position,
+          bone.endJoint.transform.position,
+        );
+      }
+
+      if (!nextBone.boxArgs.height) {
+        nextBone.boxArgs.height = this.calculateHeightForBone(
+          nextBone.startJoint.transform.position,
+          nextBone.endJoint.transform.position,
+        );
+      }
+
+      // if (!bone.boxArgs.height) continue;
+
+      if (!bone.refs.trueBoneRef.current) {
+        console.warn(
+          `buildTrueHandNoJoints - bone.refs.trueBoneRef.current not found for ${bone.name}`,
+        );
+        success = false;
+        return;
+      }
+
+      if (!nextBone.refs.trueBoneRef.current) {
+        console.error(
+          `buildTrueHandNoJoints - nextBone.refs.trueBoneRef.current not found for ${nextBone.name}`,
+        );
+        success = false;
+        return;
+      }
+
+      const boneRb = bone.refs.trueBoneRef.current;
+      const nextBoneRb = nextBone.refs.trueBoneRef.current;
+
+      // Special case for wrist
+      // if (bone.startJoint.name === "wrist") {
+      //   console.log("\n--- Special case for wrist ---");
+      //   console.log("bone.name: ", bone.name);
+
+      //   const wristJoint = this.trueHand.joints[JointNamesEnum.wrist];
+
+      //   if (!wristJoint) {
+      //     console.error("buildTrueHandNoJoints: Wrist joint not found");
+      //     success = false;
+      //     return;
+      //   }
+
+      //   const [, wrist] = wristJoint;
+
+      //   const wristRb = wrist.rigidBody.current;
+
+      //   if (!wristRb) {
+      //     console.error("buildTrueHandNoJoints: Wrist rigid body not found");
+      //     success = false;
+      //     return;
+      //   }
+
+      //   // console.log("bottomXRJointName: ", bottomXRJointName);
+      //   // console.log("topXRJointName: ", topXRJointName);
+
+      //   const bottomJointData = RAPIER.JointData.spherical(
+      //     {
+      //       x: 0,
+      //       // y: bone.boxArgs.height / 2 + this.trueHandJointRadius,
+      //       y: 0,
+      //       z: 0,
+      //     },
+      //     {
+      //       x: 0,
+      //       y: -bone.boxArgs.height / 2 - this.trueHandJointRadius,
+      //       z: 0,
+      //     },
+      //   );
+
+      //   bottomJointData.stiffness = 1.0e5;
+      //   bottomJointData.damping = 1500;
+
+      //   const bottomJoint = this.rapierWorld.createImpulseJoint(
+      //     bottomJointData,
+      //     wristRb,
+      //     boneRb,
+      //     true,
+      //   );
+
+      //   bone.attachedRapierJoints.bottom = bottomJoint;
+
+      //   const topJointData = RAPIER.JointData.spherical(
+      //     // bone
+      //     {
+      //       x: 0,
+      //       y: bone.boxArgs.height / 2 + this.trueHandJointRadius,
+      //       z: 0,
+      //     },
+      //     // wrist
+      //     {
+      //       x: 0,
+      //       y: -nextBone.boxArgs.height / 2 - this.trueHandJointRadius,
+      //       z: 0,
+      //     },
+      //   );
+
+      //   // topJointData.stiffness = 1.0e3;
+      //   // topJointData.damping = 0;
+
+      //   const topJoint = this.rapierWorld.createImpulseJoint(
+      //     topJointData,
+      //     boneRb,
+      //     nextBoneRb,
+      //     true,
+      //   );
+
+      //   bone.attachedRapierJoints.top = topJoint;
+
+      //   return;
+      // }
+
+      const bottomJointName = bone.endJoint.name;
+      const topJointName = nextBone.startJoint.name;
+
+      /**
+       * Now that we have the RB Bone and the RB Joints above and below it, we can now create the rapier joints on them.
+       * If the bottom joint is the wrist, we will create a spherical or fixed (testing for now) joint
+       * otherwise, we will use the value provided from jointTypeMappings
+       */
+      const bottomJointType = jointTypeMappings.get(bottomJointName);
+      const topJointType = jointTypeMappings.get(topJointName);
+
+      if (!bottomJointType || !topJointType) {
+        console.error(
+          `Joint type not found for ${bottomJointName} or ${topJointName}`,
+        );
+        success = false;
+        return;
+      }
+
+      // continue;
+
+      let bottomJoint: RAPIER.ImpulseJoint | undefined;
+      let topJoint: RAPIER.ImpulseJoint | undefined;
+
+      console.log("bottomJointType", bottomJointType);
+      console.log("topJointType", topJointType);
+
+      const stiffness = 1.0e6;
+      const damping = 300;
+
+      /**
+       * For the wrist bones, we are attaching it to
+       * the wrist rigidBody
+       */
+      if (bone.name.includes("wrist")) {
+        const wristRb = this.wrist.rigidBodies.trueWrist.current;
+        // const wristRb = this.wrist.rigidBodies.kinematicWrist.current;
+
+        if (wristRb) {
+          const bottomJointData = RAPIER.JointData.spherical(
+            // wrist
+            {
+              x: 0,
+              y: 0,
+              z: 0,
+            },
+            // bone
+            {
+              x: 0,
+              y: -bone.boxArgs.height / 2 - this.trueHandJointRadius,
+              z: 0,
+            },
+          );
+
+          bottomJointData.stiffness = stiffness;
+          bottomJointData.damping = damping;
+
+          bottomJoint = this.rapierWorld.createImpulseJoint(
+            bottomJointData,
+            wristRb,
+            boneRb,
+            true,
+          );
+
+          bone.attachedRapierJoints.bottom = bottomJoint;
+
+          // const topJointData = RAPIER.JointData.spherical(
+          //   {
+          //     x: 0,
+          //     y: bone.boxArgs.height / 2 + this.trueHandJointRadius,
+          //     z: 0,
+          //   },
+          //   {
+          //     x: 0,
+          //     y: -nextBone.boxArgs.height / 2 - this.trueHandJointRadius,
+          //     z: 0,
+          //   },
+          // );
+
+          // topJointData.stiffness = stiffness;
+          // topJointData.damping = damping;
+
+          // topJoint = this.rapierWorld.createImpulseJoint(
+          //   topJointData,
+          //   boneRb,
+          //   nextBoneRb,
+          //   true,
+          // );
+
+          // bone.attachedRapierJoints.top = topJoint;
+        } else {
+          console.error("buildTrueHandNoJoints: Wrist rigid body not found");
+          // success = false;
+          // return;
+        }
+      }
+
+      /**
+       * RigidBody1 is the "parent" rigid body and RigidBody2 is the "child" rigid body
+       * the parent body (rb1) is the one closer to the wrist
+       * the child body (rb2) is the one closer to the finger tip
+       */
+      // Connecting the bottom of the bone and bottom joint
+      switch (bottomJointType) {
+        case JointType.Spherical: {
+          const jointData = RAPIER.JointData.spherical(
+            {
+              x: 0,
+              y: bone.boxArgs.height / 2 + this.trueHandJointRadius,
+              z: 0,
+            },
+            {
+              x: 0,
+              y: -nextBone.boxArgs.height / 2 - this.trueHandJointRadius,
+              z: 0,
+            },
+          );
+
+          jointData.stiffness = stiffness;
+          jointData.damping = damping;
+
+          bottomJoint = this.rapierWorld.createImpulseJoint(
+            jointData,
+            boneRb,
+            nextBoneRb,
+            true,
+          );
+
+          bone.attachedRapierJoints.bottom = bottomJoint;
+
+          break;
+        }
+        case JointType.Revolute: {
+          const jointData = RAPIER.JointData.revolute(
+            {
+              x: 0,
+              y: bone.boxArgs.height / 2 + this.trueHandJointRadius,
+              z: 0,
+            },
+            {
+              x: 0,
+              y: -nextBone.boxArgs.height / 2 - this.trueHandJointRadius,
+              z: 0,
+            },
+            {
+              x: 1,
+              y: 0,
+              z: 0,
+            },
+          );
+
+          jointData.stiffness = stiffness;
+          jointData.damping = damping;
+
+          bottomJoint = this.rapierWorld.createImpulseJoint(
+            jointData,
+            boneRb,
+            nextBoneRb,
+            true,
+          );
+
+          bone.attachedRapierJoints.bottom = bottomJoint;
+
+          break;
+        }
+      }
+      if (!bone.name.includes("tip"))
+        switch (topJointType) {
+          case JointType.Spherical: {
+            const jointData = RAPIER.JointData.spherical(
+              {
+                x: 0,
+                y: bone.boxArgs.height / 2 + this.trueHandJointRadius,
+                z: 0,
+              },
+              {
+                x: 0,
+                y: -nextBone.boxArgs.height / 2 - this.trueHandJointRadius,
+                z: 0,
+              },
+            );
+
+            jointData.stiffness = stiffness;
+            jointData.damping = damping;
+
+            bottomJoint = this.rapierWorld.createImpulseJoint(
+              jointData,
+              boneRb,
+              nextBoneRb,
+              true,
+            );
+
+            bone.attachedRapierJoints.bottom = bottomJoint;
+
+            break;
+          }
+          case JointType.Revolute: {
+            const jointData = RAPIER.JointData.revolute(
+              {
+                x: 0,
+                y: bone.boxArgs.height / 2 + this.trueHandJointRadius,
+                z: 0,
+              },
+              {
+                x: 0,
+                y: -nextBone.boxArgs.height / 2 - this.trueHandJointRadius,
+                z: 0,
+              },
+              {
+                x: 1,
+                y: 0,
+                z: 0,
+              },
+            );
+
+            jointData.stiffness = stiffness;
+            jointData.damping = damping;
+
+            bottomJoint = this.rapierWorld.createImpulseJoint(
+              jointData,
+              boneRb,
+              nextBoneRb,
+              true,
+            );
+
+            bone.attachedRapierJoints.bottom = bottomJoint;
+
+            break;
+          }
+          case JointType.Fixed: {
+            const jointData = RAPIER.JointData.fixed(
+              // Bone
+              {
+                x: 0,
+                y: bone.boxArgs.height / 2 + this.trueHandJointRadius,
+                z: 0,
+              },
+              // Joint
+              {
+                x: 0,
+                y: 0,
+                z: 0,
+                w: 1,
+              },
+
+              {
+                x: 0,
+                y: -nextBone.boxArgs.height / 2 - this.trueHandJointRadius,
+                z: 0,
+              },
+              // Joint
+              {
+                x: 0,
+                y: 0,
+                z: 0,
+                w: 1,
+              },
+            );
+
+            jointData.stiffness = stiffness;
+            jointData.damping = damping;
+
+            topJoint = this.rapierWorld.createImpulseJoint(
+              jointData,
+              boneRb,
+              nextBoneRb,
+              true,
+            );
+
+            bone.attachedRapierJoints.top = topJoint;
+
+            break;
+          }
+        }
+
+      // console.log("bottomJoint", bottomJoint);
+      // console.log("topJoint", topJoint);
+
+      // if (bottomJoint) bone.attachedRapierJoints.bottom = bottomJoint;
+      // if (topJoint) bone.attachedRapierJoints.top = topJoint;
+    });
+
+    this.trueHand.ready = success;
 
     return success;
   }
@@ -1138,36 +1626,13 @@ export default class Newton {
   }
 
   private linkWrists(): boolean {
-    const kinematicWristArr = this.kinematicHand.joints[JointNamesEnum.wrist];
-
-    if (!kinematicWristArr) {
-      console.error(
-        "linkWrists: this.kinematicHand.joints[JointNamesEnum.wrist] not found",
-      );
-      return false;
-    }
-
-    const [, kinematicWrist] = kinematicWristArr;
-
-    const kinematicWristRb = kinematicWrist.rigidBody.current;
+    const trueWristRb = this.wrist.rigidBodies.trueWrist.current;
+    const kinematicWristRb = this.wrist.rigidBodies.kinematicWrist.current;
 
     if (!kinematicWristRb) {
-      console.error(
-        "linkWrists: kinematicWrist[1].rigidBody.current not found",
-      );
+      console.error("linkWrists: kinematicWristRb not found");
       return false;
     }
-
-    const trueWristArr = this.trueHand.joints[JointNamesEnum.wrist];
-
-    if (!trueWristArr) {
-      console.error("TrueWristRb not found");
-      return false;
-    }
-
-    const [, trueWrist] = trueWristArr;
-
-    const trueWristRb = trueWrist.rigidBody.current;
 
     if (!trueWristRb) {
       console.error("linkWrists: trueWristRb is undefined");
@@ -1176,52 +1641,59 @@ export default class Newton {
 
     const kinematicWristPosition = kinematicWristRb.translation();
 
-    const springJointParams = RAPIER.JointData.spring(
-      0,
-      1.0e5,
-      100,
-      {
-        x: kinematicWristPosition.x,
-        y: kinematicWristPosition.y,
-        z: kinematicWristPosition.z,
-      },
-      {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-    );
-
-    const AxesMask =
-      RAPIER.JointAxesMask.AngX |
-      RAPIER.JointAxesMask.AngY |
-      RAPIER.JointAxesMask.AngZ |
-      RAPIER.JointAxesMask.X |
-      RAPIER.JointAxesMask.Y |
-      RAPIER.JointAxesMask.Z;
+    // const AxesMask =
+    //   RAPIER.JointAxesMask.AngX |
+    //   RAPIER.JointAxesMask.AngY |
+    //   RAPIER.JointAxesMask.AngZ |
+    //   RAPIER.JointAxesMask.X |
+    //   RAPIER.JointAxesMask.Y |
+    //   RAPIER.JointAxesMask.Z;
 
     // const AxesMask =
     //   RAPIER.JointAxesMask.AngX |
     //   RAPIER.JointAxesMask.AngY |
     //   RAPIER.JointAxesMask.AngZ;
 
-    const genericJointParams = RAPIER.JointData.generic(
+    // const genericJointParams = RAPIER.JointData.generic(
+    //   {
+    //     x: 0,
+    //     y: 0,
+    //     z: 0,
+    //   },
+    //   {
+    //     x: 0,
+    //     y: 0,
+    //     z: 0,
+    //   },
+    //   {
+    //     x: 1,
+    //     y: 0,
+    //     z: 0,
+    //   },
+    //   AxesMask,
+    // );
+
+    // const joint2 = this.rapierWorld.createImpulseJoint(
+    //   genericJointParams,
+    //   kinematicWristRb,
+    //   trueWristRb,
+    //   true,
+    // )
+
+    const springJointParams = RAPIER.JointData.spring(
+      0,
+      1.0e4,
+      150,
       {
         x: 0,
         y: 0,
         z: 0,
       },
       {
-        x: 0,
-        y: 0,
-        z: 0,
+        x: kinematicWristPosition.x,
+        y: kinematicWristPosition.y,
+        z: kinematicWristPosition.z,
       },
-      {
-        x: 1,
-        y: 0,
-        z: 0,
-      },
-      AxesMask,
     );
 
     const joint = this.rapierWorld.createImpulseJoint(
@@ -1231,20 +1703,15 @@ export default class Newton {
       true,
     );
 
-    const joint2 = this.rapierWorld.createImpulseJoint(
-      genericJointParams,
-      kinematicWristRb,
-      trueWristRb,
-      true,
-    );
+    // kinematicWrist.attachedRapierJoints.spring = joint;
+    // kinematicWrist.attachedRapierJoints.generic = joint2;
 
-    kinematicWrist.attachedRapierJoints.spring = joint;
-    kinematicWrist.attachedRapierJoints.generic = joint2;
+    // trueWrist.attachedRapierJoints.spring = joint;
+    // trueWrist.attachedRapierJoints.generic = joint2;
 
-    trueWrist.attachedRapierJoints.spring = joint;
-    trueWrist.attachedRapierJoints.generic = joint2;
-
-    if (joint && joint2) {
+    // if (joint && joint2) {
+    if (joint) {
+      console.log("---------------- Wrists linked -------------------");
       this.trueHand.handsLinked = true;
       this.kinematicHand.handsLinked = true;
     }
@@ -1252,7 +1719,11 @@ export default class Newton {
     return true;
   }
 
-  private synchronizeHands(syncBones: boolean, syncJoints: boolean) {
+  private synchronizeHands(
+    syncBones: boolean,
+    syncJoints: boolean,
+    syncWrists: boolean,
+  ) {
     const stiffness = 1.0e5;
     const mass = 5;
 
@@ -1421,8 +1892,8 @@ export default class Newton {
             z: 0,
           },
           {
-            x: 1,
-            y: 0,
+            x: 0,
+            y: -1,
             z: 0,
           },
           AxesMask,
@@ -1446,9 +1917,17 @@ export default class Newton {
           true,
         );
 
+        console.log("genericJoint", genericJoint);
+        console.log("springJoint", springJoint);
+
         bone.attachedRapierJoints.spring = springJoint;
         bone.attachedRapierJoints.generic = genericJoint;
       }
+    }
+
+    if (syncWrists) {
+      // handsLinked = this.linkWrists();
+      // this.linkWrists();
     }
 
     // this.handsLinked = handsLinked;
