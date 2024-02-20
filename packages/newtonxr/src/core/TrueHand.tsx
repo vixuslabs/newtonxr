@@ -30,12 +30,12 @@ export function TrueHand({
   handedness,
   XRHand,
   inputSource,
-  bonesVisible = true,
+  bonesVisible = false,
   boneShape = "cylinder",
   id,
   ...props
 }: TrueHandProps) {
-  console.log(" ----------- INSIDE TrueHand -----------");
+  // console.log(" ----------- INSIDE TrueHand -----------");
 
   const forceUpdate = useForceUpdate();
   const { world } = useRapier();
@@ -47,6 +47,14 @@ export function TrueHand({
         rapierWorld: world,
       }),
   );
+
+  // const hand = useMemo(() => {
+  //   console.log("TrueHand - handMemo called");
+  //   return new TrueHandClass({
+  //     handedness,
+  //     rapierWorld: world,
+  //   });
+  // }, [world]);
 
   useEffect(() => {
     hand.setUpdateCallback(forceUpdate);
@@ -60,7 +68,7 @@ export function TrueHand({
       console.log("TrueHand - cleanup");
       hand.reset();
     };
-  }, []);
+  }, [hand]);
 
   useFrame((state, delta, xrFrame) => {
     if (!hand) {
@@ -93,24 +101,23 @@ export function TrueHand({
     hand.updateHandOnFrame(XRHand, xrFrame, referenceSpace);
   });
 
-  console.log("\n---------- TrueHand -------------");
-  console.log("hand", hand);
-  console.log("hand.trueHand: ", hand.trueHand);
-  console.log("hand.kinematicHand: ", hand.kinematicHand);
-  console.log("hand.wrist", hand.wrist);
-  console.log(
-    "hand.wrist.rigidBodies.kinematicWrist.current?.translation()",
-    hand.wrist.rigidBodies.kinematicWrist.current?.translation(),
-  );
-  console.log(
-    "hand.wrist.rigidBodies.trueWrist.current?.translation()",
-    hand.wrist.rigidBodies.trueWrist.current?.translation(),
-  );
-  console.log("---------------------------------\n-");
-
+  // console.log("\n---------- TrueHand -------------");
+  // console.log("hand", hand);
+  // console.log("hand.trueHand: ", hand.trueHand);
+  // console.log("hand.kinematicHand: ", hand.kinematicHand);
+  // console.log("hand.wrist", hand.wrist);
+  // console.log(
+  //   "hand.wrist.rigidBodies.kinematicWrist.current?.translation()",
+  //   hand.wrist.rigidBodies.kinematicWrist.current?.translation(),
+  // );
+  // console.log(
+  //   "hand.wrist.rigidBodies.trueWrist.current?.translation()",
+  //   hand.wrist.rigidBodies.trueWrist.current?.translation(),
+  // );
+  // console.log("---------------------------------\n-");
   return (
     <Fragment key={id}>
-      {hand.trueHand.bones.map((bone) => {
+      {hand.trueHand.bones.map((bone, i) => {
         if (!bone.boxArgs.height) return null;
         return (
           <Fragment key={bone.id}>
@@ -136,7 +143,12 @@ export function TrueHand({
 
             {/* True Bone */}
             <RigidBody
-              type="dynamic"
+              type={"dynamic"}
+              // type={
+              //   bone.transform.position.y === 0
+              //     ? "kinematicPosition"
+              //     : "dynamic"
+              // }
               gravityScale={0}
               canSleep={false}
               colliders={false}
@@ -156,76 +168,131 @@ export function TrueHand({
               {...props}
               ref={bone.refs.trueBoneRef}
             >
-              <mesh visible={true}>
-                {boneShape === "cylinder" ? (
-                  <>
-                    <cylinderGeometry
-                      args={[
-                        bone.boxArgs.width / 2,
-                        bone.boxArgs.width / 2,
-                        bone.boxArgs.height,
-                      ]}
-                    />
+              {bonesVisible ? (
+                <>
+                  <mesh>
+                    {boneShape === "cylinder" ? (
+                      <>
+                        <cylinderGeometry
+                          args={[
+                            bone.boxArgs.width / 2,
+                            bone.boxArgs.width / 2,
+                            bone.boxArgs.height,
+                          ]}
+                        />
 
-                    <RoundCylinderCollider
-                      args={[
-                        bone.boxArgs.height / 2,
-                        bone.boxArgs.width / 2,
-                        0,
-                      ]}
-                      friction={2}
-                      restitution={0}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <boxGeometry
-                      args={[
-                        bone.boxArgs.width,
-                        bone.boxArgs.height,
-                        bone.boxArgs.depth,
-                      ]}
-                    />
+                        <RoundCylinderCollider
+                          args={[
+                            bone.boxArgs.height / 2,
+                            bone.boxArgs.width / 2,
+                            0,
+                          ]}
+                          friction={2}
+                          restitution={0}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <boxGeometry
+                          args={[
+                            bone.boxArgs.width,
+                            bone.boxArgs.height,
+                            bone.boxArgs.depth,
+                          ]}
+                        />
 
-                    <CuboidCollider
-                      args={[
-                        bone.boxArgs.width,
-                        bone.boxArgs.height,
-                        bone.boxArgs.depth,
-                      ]}
-                      friction={2}
-                      restitution={0}
-                    />
-                  </>
-                )}
+                        <CuboidCollider
+                          args={[
+                            bone.boxArgs.width,
+                            bone.boxArgs.height,
+                            bone.boxArgs.depth,
+                          ]}
+                          friction={2}
+                          restitution={0}
+                        />
+                      </>
+                    )}
 
-                <meshBasicMaterial
-                  transparent
-                  opacity={bonesVisible ? 0.5 : 0}
-                  color="white"
+                    <meshBasicMaterial
+                      transparent
+                      opacity={bonesVisible ? 0.5 : 0}
+                      color="white"
+                    />
+                  </mesh>
+                </>
+              ) : (
+                <RoundCylinderCollider
+                  args={[bone.boxArgs.height / 2, bone.boxArgs.width / 2, 0]}
+                  friction={2}
+                  restitution={0}
                 />
-              </mesh>
+              )}
+
+              {/* Load the wrist rbs first loop  */}
+              {i === 0 && (
+                <>
+                  {/* TrueHand Wrist Rigid Body */}
+                  <RigidBody
+                    type="dynamic"
+                    gravityScale={0}
+                    canSleep={false}
+                    colliders={"ball"}
+                    collisionGroups={interactionGroups([], [])}
+                    ref={hand.wrist.rigidBodies.trueWrist}
+                  />
+
+                  {/* Kinematic Wrist Rigid Body */}
+                  <RigidBody
+                    type="kinematicPosition"
+                    ref={hand.wrist.rigidBodies.kinematicWrist}
+                    colliders={false}
+                    canSleep={false}
+                  />
+                </>
+              )}
             </RigidBody>
           </Fragment>
         );
       })}
 
+      {/* {hand.trueHand.joints.map(([name, jointInfo]) => {
+        return (
+          <RigidBody
+            key={name + "trueHandJoint"}
+            type="kinematicPosition"
+            gravityScale={0}
+            restitution={0}
+            canSleep={false}
+            colliders={"ball"}
+            userData={{ name }}
+            collisionGroups={interactionGroups([], [])}
+            density={5}
+            ref={jointInfo.rigidBody}
+          >
+            <mesh>
+              <sphereGeometry args={[hand.trueHandJointRadius]} />
+              <meshBasicMaterial color="red" />
+            </mesh>
+          </RigidBody>
+        );
+      })} */}
+
       {/* TrueHand Wrist Rigid Body */}
-      <RigidBody
+      {/* <RigidBody
         type="dynamic"
         gravityScale={0}
         canSleep={false}
         colliders={false}
         ref={hand.wrist.rigidBodies.trueWrist}
-      />
+      /> */}
 
       {/* Kinematic Wrist Rigid Body */}
-      <RigidBody
+      {/* <RigidBody
         type="kinematicPosition"
         ref={hand.wrist.rigidBodies.kinematicWrist}
         colliders={false}
         canSleep={false}
-      />
+      /> */}
     </Fragment>
   );
 
