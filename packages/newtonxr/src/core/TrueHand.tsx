@@ -112,8 +112,8 @@ export function TrueHand({
       return;
     }
 
-    if (!inputSource.hand) {
-      console.log("TrueHand - no inputSource.hand");
+    if (!XRHand) {
+      console.log("TrueHand - no XRHand");
       return;
     }
 
@@ -129,15 +129,8 @@ export function TrueHand({
       return;
     }
 
-    if (!XRHand) {
-      console.log("TrueHand - no XRHand");
-      return;
-    }
-
     hand.updateHandOnFrame(XRHand, xrFrame, referenceSpace);
   });
-
-  console.log("states", rigidBodyStates, colliderStates);
 
   // console.log("\n---------- TrueHand -------------");
   // console.log("hand", hand);
@@ -154,9 +147,9 @@ export function TrueHand({
   // );
   // console.log("---------------------------------\n-");
 
-  return null;
+  // return null;
 
-  // return <primitive object={hand.handGroup} />;
+  return <primitive object={hand.handGroup} />;
 
   return (
     <Fragment key={id}>
