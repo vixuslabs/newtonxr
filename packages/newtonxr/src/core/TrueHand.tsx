@@ -12,10 +12,11 @@ import {
   useRapier,
   type RigidBodyOptions,
 } from "@react-three/rapier";
+import type { RigidBodyState } from "@react-three/rapier/dist/declarations/src/components/Physics.js";
 
 import { BoneOrder } from "../hooks/useHandHooks.js";
 import { useConst, useForceUpdate } from "../utils/utils.js";
-import TrueHandClass from "./TrueHandClass.js";
+import TrueHandClass, { boneNames } from "./TrueHandClass.js";
 
 interface TrueHandProps extends RigidBodyOptions {
   inputSource: XRInputSource;
@@ -38,23 +39,52 @@ export function TrueHand({
   // console.log(" ----------- INSIDE TrueHand -----------");
 
   const forceUpdate = useForceUpdate();
-  const { world } = useRapier();
+  const { world, rigidBodyStates, colliderStates } = useRapier();
 
-  const hand = useConst<TrueHandClass>(
-    () =>
-      new TrueHandClass({
-        handedness,
-        rapierWorld: world,
-      }),
-  );
+  // const handBonesRbState = useMemo(() => {
+  //   console.log("TrueHand - handBonesMemo called");
 
-  // const hand = useMemo(() => {
-  //   console.log("TrueHand - handMemo called");
-  //   return new TrueHandClass({
-  //     handedness,
-  //     rapierWorld: world,
-  //   });
-  // }, [world]);
+  //   let ready = true;
+
+  //   const handBonesState: RigidBodyState[] = [];
+
+  //   for (const boneName of boneNames) {
+  //     const rb = hand.boneData.get(boneName);
+
+  //     if (!rb) {
+  //       ready = false;
+  //       break;
+  //     }
+  //     // const rigidBodyState: RigidBodyState = {
+  //     //   object: rb.object3d,
+  //     //   rigidBody: rb.rigidBody
+  //     // };
+  //   };
+
+  //   if (ready) {
+  //     console.log("TrueHand - handBonesMemo ready");
+  //   }
+  //   return ready;
+
+  // }, [hand.boneRigidBodies]);
+
+  // const hand = useConst<TrueHandClass>(
+  //   () =>
+  //     new TrueHandClass({
+  //       handedness,
+  //       rapierWorld: world,
+  //     }),
+  // );
+
+  const hand = useMemo(() => {
+    console.log("TrueHand - handMemo called");
+    return new TrueHandClass({
+      handedness,
+      rapierWorld: world,
+      rigidBodyStates,
+      colliderStates,
+    });
+  }, [world]);
 
   useEffect(() => {
     hand.setUpdateCallback(forceUpdate);
@@ -62,6 +92,12 @@ export function TrueHand({
       hand.clearUpdateCallback();
     };
   }, [forceUpdate]);
+
+  // useEffect(() => {
+  //   // hand.boneRigidBodies.forEach((rb) => {
+  //   //   rigidBodyStates.set(rb.handle, rb);
+  //   // });
+  // }, [hand.boneData]);
 
   useEffect(() => {
     return () => {
@@ -101,6 +137,8 @@ export function TrueHand({
     hand.updateHandOnFrame(XRHand, xrFrame, referenceSpace);
   });
 
+  console.log("states", rigidBodyStates, colliderStates);
+
   // console.log("\n---------- TrueHand -------------");
   // console.log("hand", hand);
   // console.log("hand.trueHand: ", hand.trueHand);
@@ -115,6 +153,11 @@ export function TrueHand({
   //   hand.wrist.rigidBodies.trueWrist.current?.translation(),
   // );
   // console.log("---------------------------------\n-");
+
+  return null;
+
+  // return <primitive object={hand.handGroup} />;
+
   return (
     <Fragment key={id}>
       {hand.trueHand.bones.map((bone, i) => {
@@ -222,7 +265,7 @@ export function TrueHand({
                 </>
               ) : (
                 <RoundCylinderCollider
-                  args={[bone.boxArgs.height / 2, bone.boxArgs.width / 2, 0]}
+                  args={[bone.boxArgs.height / 2, bone.boxArgs.width, 0]}
                   friction={2}
                   restitution={0}
                 />
@@ -251,6 +294,33 @@ export function TrueHand({
                 </>
               )}
             </RigidBody>
+          </Fragment>
+        );
+      })}
+
+      {/* Joints */}
+      {hand.trueHand.joints.map(([name, jointInfo]) => {
+        return (
+          <Fragment key={name + "trueHandJoint"}>
+            <RigidBody
+              key={name + "trueHandJoint"}
+              type="kinematicPosition"
+              gravityScale={0}
+              restitution={0}
+              canSleep={false}
+              colliders={"ball"}
+              userData={{ name }}
+              collisionGroups={interactionGroups([], [])}
+              density={5}
+              ref={jointInfo.rigidBody}
+            >
+              <mesh>
+                <sphereGeometry args={[hand.trueHandJointRadius]} />
+                <meshBasicMaterial color="red" />
+              </mesh>
+            </RigidBody>
+
+            {/* Kinematic Joint */}
           </Fragment>
         );
       })}
