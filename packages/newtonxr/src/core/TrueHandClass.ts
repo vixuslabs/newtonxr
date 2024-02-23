@@ -966,6 +966,8 @@ export default class Newton {
         dynamicJointRb,
       );
 
+      const pos = kinematicJointRb.translation();
+
       const springJointDesc = RAPIER.JointData.spring(
         0,
         1.0e3,
@@ -983,20 +985,54 @@ export default class Newton {
         true,
       );
 
-      const fixedJointDesc = RAPIER.JointData.fixed(
-        new RAPIER.Vector3(0, 0, 0),
-        new RAPIER.Quaternion(0.0, 0.0, 0.0, 1.0),
-        // kinematicJointRb.translation(),
-        new RAPIER.Vector3(0, 0, 0),
-        new RAPIER.Quaternion(0.0, 0.0, 0.0, 1.0),
+      const AxesMask =
+        RAPIER.JointAxesMask.AngX |
+        RAPIER.JointAxesMask.AngY |
+        RAPIER.JointAxesMask.AngZ |
+        RAPIER.JointAxesMask.X |
+        RAPIER.JointAxesMask.Y |
+        RAPIER.JointAxesMask.Z;
+
+      const genericJointParams = RAPIER.JointData.generic(
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
+        {
+          x: 1,
+          y: 0,
+          z: 0,
+        },
+        AxesMask,
       );
 
-      const fixedImpulseJoint = this.rapierWorld.createImpulseJoint(
-        fixedJointDesc,
+      const genericImpulseJoint = this.rapierWorld.createImpulseJoint(
+        genericJointParams,
         kinematicJointRb,
         dynamicJointRb,
         true,
       );
+
+      // const fixedJointDesc = RAPIER.JointData.fixed(
+      //   new RAPIER.Vector3(0, 0, 0),
+      //   new RAPIER.Quaternion(0.0, 0.0, 0.0, 1.0),
+      //   // kinematicJointRb.translation(),
+      //   new RAPIER.Vector3(0, 0, 0),
+      //   new RAPIER.Quaternion(0.0, 0.0, 0.0, 1.0),
+      // );
+
+      // const fixedImpulseJoint = this.rapierWorld.createImpulseJoint(
+      //   fixedJointDesc,
+      //   kinematicJointRb,
+      //   dynamicJointRb,
+      //   true,
+      // );
 
       dynamicRbTracker.set(jointName, dynamicJointRb);
 
@@ -1136,19 +1172,20 @@ export default class Newton {
           name: boneName,
           type: "dynamic",
         })
-        .setAngvel(new RAPIER.Vector3(0, 0, 0))
-        .setLinvel(0, 0, 0)
         .setTranslation(bonePosition.x, bonePosition.y, bonePosition.z)
         .setRotation(oQuat1);
 
       const dynamicBoneRb = this.rapierWorld.createRigidBody(dynamicBoneDesc);
 
+      const friction = boneName.includes("tip") ? 5 : 2;
+
       const boneColliderDesc = RAPIER.ColliderDesc.cylinder(
         boneProps.height ? boneProps.height / 2 : 0.03,
         boneProps.width,
       )
-        .setDensity(50)
-        .setFriction(2)
+        .setDensity(5)
+        .setFriction(friction)
+        .setRestitution(0)
         .setCollisionGroups(interactionGroups([0], [7, 8]));
 
       const boneCollider = this.rapierWorld.createCollider(
