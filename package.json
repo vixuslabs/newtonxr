@@ -19,7 +19,7 @@
     "dev:all": "turbo dev",
     "dev:newton": "turbo dev --filter \"./packages/*\"",
     "lint": "turbo lint",
-    "format:check": "prettier --check .",
+    "format:check": "prettier --check . ",
     "format": "prettier --write . --list-different",
     "typecheck": "turbo typecheck",
     "postinstall": "manypkg check",

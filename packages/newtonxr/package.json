@@ -36,6 +36,8 @@
     "build": "tsup",
     "dev": "pnpm run build --watch",
     "lint": "eslint . --max-warnings 0",
+    "format:check": "prettier --check . --ignore-path ../../.prettierignore",
+    "format": "prettier --write . --list-different --ignore-path ../../.prettierignore",
     "clean": "git clean -xdf dist node_modules",
     "typecheck": "tsc --noEmit"
   },
