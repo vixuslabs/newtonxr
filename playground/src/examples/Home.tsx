@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { Suspense, useState } from "react";
 import { getInputSourceId } from "@coconut-xr/natuerlich";
 import { XRCanvas } from "@coconut-xr/natuerlich/defaults";
 import {
@@ -14,9 +14,9 @@ import {
 import {
   BuildPhysicalMeshes,
   BuildPhysicalPlanes,
-  PhysHand,
-  PhysicalBall,
   PhysicalController,
+  PhysicalObject,
+  TrueHand,
   XRPhysics,
 } from "@vixuslabs/newtonxr";
 
@@ -31,6 +31,7 @@ const sessionOptions: XRSessionInit = {
 
 export default function Home() {
   const [startSync, setStartSync] = useState(false);
+  const [clickedStart, setClickedStart] = useState(false);
   const enterAR = useEnterXR("immersive-ar", sessionOptions);
   const inputSources = useInputSources();
 
@@ -40,6 +41,7 @@ export default function Home() {
     if (prevSession && !curSession) {
       console.log("session ended");
       setStartSync(false);
+      setClickedStart(false);
     }
   }, []);
 
@@ -51,9 +53,10 @@ export default function Home() {
       <div className="home-container">
         <h1 className="home-title">NewtonXR Playground</h1>
         <button
-          disabled={!isSupported}
+          disabled={!isSupported || clickedStart}
           className="home-button"
           onClick={() => {
+            setClickedStart(true);
             console.log("clicked!");
             void enterAR().then(() => {
               console.log("entered");
@@ -64,43 +67,29 @@ export default function Home() {
           {isSupported ? "Begin" : "Device not Compatible :("}
         </button>
       </div>
-      <XRCanvas
-        frameBufferScaling={frameBufferScaling}
-        frameRate={frameRate}
-        dpr={[1, 2]}
-        // // @ts-expect-error - import error
-        // events={clippingEvents}
-        gl={{ localClippingEnabled: true }}
-      >
-        {/* Lighting */}
-        <ambientLight intensity={1} />
-        <FocusStateGuard>
-          <XRPhysics>
-            {startSync && (
-              <>
-                <PhysicalBall position={[0, 1.5, -0.2]} />
-              </>
-            )}
-
-            <ImmersiveSessionOrigin>
-              <BuildPhysicalMeshes excludeGlobalMesh />
-              <BuildPhysicalPlanes />
-
-              {/* Testing PhysHand */}
+      <Suspense fallback={null}>
+        <XRCanvas
+          frameBufferScaling={frameBufferScaling}
+          frameRate={frameRate}
+          dpr={[1, 2]}
+          className="absolute"
+        >
+          <ambientLight intensity={1} />
+          <FocusStateGuard>
+            <XRPhysics>
               {inputSources?.map((inputSource) =>
                 inputSource.hand ? (
-                  <PhysHand
+                  <TrueHand
                     key={getInputSourceId(inputSource)}
+                    XRHand={inputSource.hand}
                     inputSource={inputSource}
                     id={getInputSourceId(inputSource)}
-                    hand={inputSource.hand}
-                    // withDigitalHand
+                    // fingersFriction={0}
+                    // tipFingersFriction={10}
+                    // density={10}
+                    // restitution={0.8}
                   />
-                ) : null,
-              )}
-
-              {inputSources?.map((inputSource) =>
-                inputSource.hand ? null : (
+                ) : (
                   <PhysicalController
                     key={getInputSourceId(inputSource)}
                     id={getInputSourceId(inputSource)}
@@ -108,10 +97,88 @@ export default function Home() {
                   />
                 ),
               )}
-            </ImmersiveSessionOrigin>
-          </XRPhysics>
-        </FocusStateGuard>
-      </XRCanvas>
+
+              <ImmersiveSessionOrigin>
+                <BuildPhysicalMeshes excludeGlobalMesh />
+                <BuildPhysicalPlanes />
+
+                {startSync && (
+                  <>
+                    <PhysicalObject restitution={0.5} position={[-0.2, 2, 0]} />
+                    <PhysicalObject restitution={1.5} position={[0.3, 2, 0]}>
+                      <sphereGeometry args={[0.04, 32, 32]} />
+                      <meshBasicMaterial color={"cyan"} />
+                    </PhysicalObject>
+
+                    <Boxes />
+
+                    {/* <PhysicalObject
+                      friction={2}
+                      restitution={0.75}
+                      position={[0.2, 2, 0.2]}
+                    >
+                      <sphereGeometry args={[0.03, 32, 32]} />
+                      <meshBasicMaterial color={"orange"} />
+                    </PhysicalObject> */}
+                  </>
+                )}
+              </ImmersiveSessionOrigin>
+            </XRPhysics>
+          </FocusStateGuard>
+        </XRCanvas>
+      </Suspense>
     </div>
   );
 }
+
+const Boxes = () => {
+  return (
+    <>
+      <PhysicalObject
+        colliders="cuboid"
+        restitution={0.2}
+        position={[-0.1, 2, -0.2]}
+      >
+        <boxGeometry args={[0.05, 0.05, 0.05]} />
+        <meshBasicMaterial color={"orange"} />
+      </PhysicalObject>
+
+      {/* Boxes */}
+      <PhysicalObject
+        colliders="cuboid"
+        restitution={0.2}
+        position={[-0.05, 2, -0.2]}
+      >
+        <boxGeometry args={[0.05, 0.05, 0.05]} />
+        <meshBasicMaterial color={"pink"} />
+      </PhysicalObject>
+
+      <PhysicalObject
+        colliders="cuboid"
+        restitution={0.2}
+        position={[0, 2, -0.2]}
+      >
+        <boxGeometry args={[0.05, 0.05, 0.05]} />
+        <meshBasicMaterial color={"green"} />
+      </PhysicalObject>
+
+      <PhysicalObject
+        colliders="cuboid"
+        restitution={0.2}
+        position={[0.05, 2, -0.2]}
+      >
+        <boxGeometry args={[0.05, 0.05, 0.05]} />
+        <meshBasicMaterial color={"blue"} />
+      </PhysicalObject>
+
+      <PhysicalObject
+        colliders="cuboid"
+        restitution={0.2}
+        position={[0.1, 2, -0.2]}
+      >
+        <boxGeometry args={[0.05, 0.05, 0.05]} />
+        <meshBasicMaterial color={"red"} />
+      </PhysicalObject>
+    </>
+  );
+};

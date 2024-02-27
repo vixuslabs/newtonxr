@@ -1,8 +1,12 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 
+// import HandExample from "./examples/Hand.js";
 import Home from "./examples/Home.js";
 
 import "../styles/global.css";
 
-createRoot(document.getElementById("root")!).render(<Home />);
+const root = createRoot(document.getElementById("root")!);
+
+// root.render(<HandExample />);
+root.render(<Home />);
