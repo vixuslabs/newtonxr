@@ -1,54 +1,52 @@
-name: Release
-on:
-  push:
-    branches:
-      - main
+# name: Release
+# on:
+#   push:
+#     branches:
+#       - main
 
-env:
-  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+# concurrency: ${{ github.workflow }}-${{ github.ref }}
 
-jobs:
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+# jobs:
+#   release:
+#     name: Release
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v3
+#         with:
+#           fetch-depth: 0
 
-      - name: Use PNPM
-        uses: pnpm/action-setup@v2
+#       - name: Use PNPM
+#         uses: pnpm/action-setup@v2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version-file: ".nvmrc"
-          cache: "pnpm"
-          registry-url: "https://registry.npmjs.org"
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version-file: ".nvmrc"
+#           cache: "pnpm"
+#           registry-url: "https://registry.npmjs.org"
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        run: |
-          echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+#       - name: Get pnpm store directory
+#         id: pnpm-cache
+#         run: |
+#           echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+#       - name: Setup pnpm cache
+#         uses: actions/cache@v3
+#         with:
+#           path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+#           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+#           restore-keys: |
+#             ${{ runner.os }}-pnpm-store-
 
-      - name: Install deps (with cache)
-        run: pnpm install
+#       - name: Install deps (with cache)
+#         run: pnpm install
 
-      - name: Check packages for common errors
-        run: pnpm turbo --filter "./packages/*" lint typecheck build 
+#       - name: Check packages for common errors
+#         run: pnpm turbo --filter "./packages/*" lint typecheck build
 
-      - name: Create release
-        run: pnpm publish packages/newtonxr --no-git-checks --access restricted
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+#       - name: Create release
+#         run: pnpm publish packages/newtonxr --no-git-checks --access restricted
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
