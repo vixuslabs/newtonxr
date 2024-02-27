@@ -41,7 +41,19 @@ export interface GrabProps {
   isDeletable?: boolean;
 }
 
-// eslint-disable-next-line react/display-name
+/**
+ * Wrapper Component for creating grabbable objects in a 3D scene.
+ *
+ * @note Unstable: This component is still under active development and will change in the future.
+ *
+ * @component
+ * @param {string} name - The name of the grabbable object.
+ * @param {ReactNode} children - The children components of the grabbable object.
+ * @param {function} handleGrab - The callback function called when the object is grabbed.
+ * @param {function} handleRelease - The callback function called when the object is released.
+ * @param {MutableRefObject} ref - The reference to the grabbable object.
+ * @returns {JSX.Element} The grabbable object component.
+ */
 export const Grabbable = forwardRef<RigidAndMeshRefs, GrabProps>(
   ({ name, children, handleGrab, handleRelease }, ref) => {
     // const newton = useNewton();
@@ -339,3 +351,5 @@ export const Grabbable = forwardRef<RigidAndMeshRefs, GrabProps>(
     );
   },
 );
+
+Grabbable.displayName = "Grabbable";

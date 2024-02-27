@@ -1,8 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type {
-  Quaternion as RapierQuaternion,
-  Vector3 as RapierVector3,
-} from "@dimforge/rapier3d-compat";
+import type { Vector3 as RapierVector3 } from "@dimforge/rapier3d-compat";
 
 import type { HandBoneNames } from "../index.js";
 
@@ -40,6 +37,12 @@ export const lerpRapierVectors = (
   };
 };
 
+/**
+ * Hook from [@react-three-rapier](https://github.com/pmndrs/react-three-rapier)
+ *
+ * @param initialValue
+ * @returns
+ */
 export function useConst<T>(initialValue: T | (() => T)): T {
   const ref = useRef<{ value: T }>();
   if (ref.current === undefined) {

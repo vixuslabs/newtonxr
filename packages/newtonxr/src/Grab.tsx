@@ -2,12 +2,8 @@
 
 import React, { forwardRef, useMemo, type MutableRefObject } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
-// import { useNewton } from "../state.js";
-// import { useControllersState } from "../hooks/useControllersState.js";
 
 import type { RapierRigidBody } from "@react-three/rapier";
-
-// import { useControllersState, useHeldObjects } from "./index.js";
 
 export interface RigidAndMeshRefs {
   rigidRef: React.RefObject<RapierRigidBody>;
@@ -32,7 +28,11 @@ export interface GrabProps {
   handleWhileHeld?: () => void;
 }
 
-// eslint-disable-next-line react/display-name
+/**
+ * @note Incomplete. It needs to be synced with useNextonXR, thus not used in the current version
+ *
+ *
+ */
 export const Grab = forwardRef<RigidAndMeshRefs, GrabProps>(
   (
     {
@@ -84,3 +84,5 @@ export const Grab = forwardRef<RigidAndMeshRefs, GrabProps>(
     );
   },
 );
+
+Grab.displayName = "Grab";
