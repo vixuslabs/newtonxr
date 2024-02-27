@@ -1,4 +1,5 @@
 import { XRHandJointEnum } from "./core/TrueHandClass.js";
+
 /**
  * organizing collision groups
  * @note interaction groups go from 0 to 15

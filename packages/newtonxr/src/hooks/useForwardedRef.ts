@@ -1,4 +1,4 @@
-import { type ForwardedRef, type MutableRefObject, useRef } from "react";
+import { useRef, type ForwardedRef, type MutableRefObject } from "react";
 
 /**
  * Using the `useForwardedRef` created within react-three/rapier

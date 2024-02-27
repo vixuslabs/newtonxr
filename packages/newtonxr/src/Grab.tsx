@@ -2,7 +2,6 @@
 
 import React, { forwardRef, useMemo, type MutableRefObject } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
-
 import type { RapierRigidBody } from "@react-three/rapier";
 
 export interface RigidAndMeshRefs {
