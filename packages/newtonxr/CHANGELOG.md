@@ -1,5 +1,13 @@
 # @vixuslabs/newtonxr
 
+## 1.0.1
+
+### Patch Changes
+
+- - remove bundling to fix errors with BuildPhysicalMeshes and
+    BuildPhysicalPlanes
+  - add "use strict" banner
+
 ## 1.0.0
 
 ### Major Changes

@@ -1,6 +1,6 @@
 {
   "name": "@vixuslabs/newtonxr",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "type": "module",
   "description": "a webxr library for effortlessly infusing realistic physics into your projects",
