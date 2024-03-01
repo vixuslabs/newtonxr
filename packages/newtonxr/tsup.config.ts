@@ -5,10 +5,9 @@ export default defineConfig((opts) => ({
   dts: true,
   format: ["esm"],
   clean: !opts.watch,
-  esbuildOptions: (option) => {
-    option.banner = {
-      // to ensure compatibility with nextjs apps
-      js: `"use client";`,
-    };
+  platform: "browser",
+  bundle: false,
+  banner: {
+    js: "'use strict';",
   },
 }));
