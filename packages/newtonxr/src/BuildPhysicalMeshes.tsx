@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useRef } from "react";
 import { getMeshId } from "@coconut-xr/natuerlich";
 import { TrackedMesh, useTrackedMeshes } from "@coconut-xr/natuerlich/react";

@@ -1,5 +1,3 @@
-"use client";
-
 import React, { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { RayBasicMaterial } from "@coconut-xr/natuerlich/defaults";
 import {

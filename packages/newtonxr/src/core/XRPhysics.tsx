@@ -1,5 +1,3 @@
-"use client";
-
 import React, { Suspense } from "react";
 import { Physics } from "@react-three/rapier";
 import type { PhysicsProps } from "@react-three/rapier";

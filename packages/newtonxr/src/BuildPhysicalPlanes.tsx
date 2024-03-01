@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useRef } from "react";
 import { getPlaneId } from "@coconut-xr/natuerlich";
 import { TrackedPlane, useTrackedPlanes } from "@coconut-xr/natuerlich/react";

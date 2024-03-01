@@ -1,5 +1,3 @@
-"use client";
-
 import { useNewton } from "../core/store.js";
 import type { XRController } from "../core/store.js";
 
