@@ -1,5 +1,12 @@
 # @vixuslabs/newtonxr
 
+## 1.1.0
+
+### Minor Changes
+
+- 71e5c71: - `BuildPhysicalMeshes` and `BuildPhysicalPlanes` now require you to
+  pass in your `meshes` and `planes`, respectively.
+
 ## 1.0.1
 
 ### Patch Changes
