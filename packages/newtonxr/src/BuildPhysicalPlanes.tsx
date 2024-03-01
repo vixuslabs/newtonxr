@@ -1,10 +1,12 @@
 import React, { useRef } from "react";
 import { getPlaneId } from "@coconut-xr/natuerlich";
-import { TrackedPlane, useTrackedPlanes } from "@coconut-xr/natuerlich/react";
+import type { ExtendedXRPlane } from "@coconut-xr/natuerlich/react";
+import { TrackedPlane } from "@coconut-xr/natuerlich/react";
 import { interactionGroups, RigidBody } from "@react-three/rapier";
 import type { RapierRigidBody } from "@react-three/rapier";
 
 interface BuildPhysicalPlanesProps {
+  planes: readonly ExtendedXRPlane[] | undefined;
   children?: React.ReactNode;
   debug?: boolean;
 }
@@ -12,6 +14,7 @@ interface BuildPhysicalPlanesProps {
 /**
  * Transforms of Tracked Planes into Rigid Bodies.
  *
+ * @param {planes} props.planes - The tracked planes to be transformed into rigid bodies. Retrievable with `useTrackedPlanes` from `@coconut-xr/natuerlich`.
  * @param {children} props.children - The children of the mesh.
  * @param {excludeGlobalMesh} props.excludeGlobalMesh - Whether to exclude the global mesh.
  * @param {debug} props.debug - Whether to enable debug mode, which will add wireframe to the meshes.
@@ -22,10 +25,10 @@ interface BuildPhysicalPlanesProps {
  * @returns A group of rigid bodies with all tracked planes being a THREE.Mesh.
  */
 export function BuildPhysicalPlanes({
+  planes,
   children,
   debug = false,
 }: BuildPhysicalPlanesProps) {
-  const planes = useTrackedPlanes();
   const planeRef = useRef<THREE.Mesh>(null);
   const rigidBodyRef = useRef<RapierRigidBody>(null);
 

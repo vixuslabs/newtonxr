@@ -1,10 +1,12 @@
 import React, { useRef } from "react";
 import { getMeshId } from "@coconut-xr/natuerlich";
-import { TrackedMesh, useTrackedMeshes } from "@coconut-xr/natuerlich/react";
+import { TrackedMesh } from "@coconut-xr/natuerlich/react";
+import type { ExtendedXRMesh } from "@coconut-xr/natuerlich/react";
 import { interactionGroups, RigidBody } from "@react-three/rapier";
 import type { RapierRigidBody } from "@react-three/rapier";
 
 interface BuildPhysicalMeshesProps {
+  meshes: readonly ExtendedXRMesh[] | undefined;
   children?: React.ReactNode;
   excludeGlobalMesh?: boolean;
   debug?: boolean;
@@ -13,6 +15,7 @@ interface BuildPhysicalMeshesProps {
 /**
  * Transforms Tracked Meshes into Rigid Bodies.
  *
+ * @param {meshes} props.meshes - The meshes to be transformed into rigid bodies. Retrievable with `useTrackedMeshes` from `@coconut-xr/natuerlich`.
  * @param {children} props.children - The children of the mesh.
  * @param {excludeGlobalMesh} props.excludeGlobalMesh - Whether to exclude the global mesh.
  * @param {debug} props.debug - Whether to enable debug mode, which will add wireframe to the meshes.
@@ -26,8 +29,8 @@ export function BuildPhysicalMeshes({
   children,
   excludeGlobalMesh = false,
   debug = false,
+  meshes,
 }: BuildPhysicalMeshesProps) {
-  const meshes = useTrackedMeshes();
   const meshRef = useRef<THREE.Mesh>(null);
   const rigidBodyRef = useRef<RapierRigidBody>(null);
 
