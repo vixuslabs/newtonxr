@@ -1,6 +1,6 @@
 {
   "name": "playground",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,8 @@
     "@coconut-xr/natuerlich": "^0.0.48",
     "@react-three/drei": "^9.97.3",
     "@react-three/fiber": "^8.15.11",
-    "@vixuslabs/newtonxr": "1.0.0",
+    "@react-three/rapier": "1.3.0",
+    "@vixuslabs/newtonxr": "1.1.0",
     "r3f-perf": "^7.1.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

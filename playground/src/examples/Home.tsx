@@ -10,6 +10,8 @@ import {
   useNativeFramebufferScaling,
   useSessionChange,
   useSessionSupported,
+  useTrackedMeshes,
+  useTrackedPlanes,
 } from "@coconut-xr/natuerlich/react";
 import {
   BuildPhysicalMeshes,
@@ -34,6 +36,8 @@ export default function Home() {
   const [clickedStart, setClickedStart] = useState(false);
   const enterAR = useEnterXR("immersive-ar", sessionOptions);
   const inputSources = useInputSources();
+  const meshes = useTrackedMeshes();
+  const planes = useTrackedPlanes();
 
   const isSupported = useSessionSupported("immersive-ar");
 
@@ -99,8 +103,8 @@ export default function Home() {
               )}
 
               <ImmersiveSessionOrigin>
-                <BuildPhysicalMeshes excludeGlobalMesh />
-                <BuildPhysicalPlanes />
+                <BuildPhysicalMeshes meshes={meshes} excludeGlobalMesh />
+                <BuildPhysicalPlanes planes={planes} />
 
                 {startSync && (
                   <>
